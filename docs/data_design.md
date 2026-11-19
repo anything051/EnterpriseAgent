@@ -1,85 +1,79 @@
-# 数据结构与证据模型（设计稿）
+# EnterpriseRAG 数据与证据设计
 
-> V0.0 只规定逻辑契约；数据库 DDL、字段类型、索引、迁移在 V0.1/V0.2 实现时确定。
+本文件定义实体、键、位置语义和生命周期。V0.1 先实现文档来源与索引，后续根据路线图扩展课程、业务和评测实体。
 
-## 1. 数据实体
+## 1. 共享核心实体与关系
 
-| 实体 | 建议必要字段 | 设计要点 |
+| 实体 | 主键及主要字段 | 关系与约束 |
 | --- | --- | --- |
-| ApplicationScope | app_id、tenant_id(可选)、permissions | CourseRAG 与 EnterpriseAgent 默认隔离 |
-| Document | document_id、scope_id、file_hash、version、filename、mime_type、source_uri、ingest_time、parser_version | 可重新解析和增量导入；原始文件存储位置可审计 |
-| Section | section_id、document_id、course_id、chapter_path、title | CourseRAG 的章节组织；不强加于企业数据 |
-| Chunk | chunk_id、document_id、version、page_start/end、section_id、char_start/end、text、metadata | 与原文切片有稳定映射；跨页分块要记录多段来源 |
-| Embedding | chunk_id、model_id、model_version、dimension、vector、created_at | 模型改变需重建相关索引 |
-| Evidence | evidence_id、source_type、source_id、scope_id、text_or_data、locator、retrieval_run_id、score | 统一外部对象，但不同类型分别做验证 |
-| Citation | citation_id、answer_id、claim_span、evidence_id、support_status、validator_version | 由后端绑定实际 Evidence，不能凭模型生成虚构引用 |
-| EvaluationSample | sample_id、split、question、gold_answer、gold_evidence、answerability、tags | 记录人工标注依据 |
-| EvaluationRun | run_id、model_id、config_hash、data_version、seed、timestamp、sample_results | 能复现结果及统计口径 |
-| ToolExecution | execution_id、tool_id、request_params、status、started_at、finished_at、source_refs、error_code | 敏感参数与凭据须脱敏 |
+| Scope | `scope_id`、`app_id`、`collection_id`、可选 `tenant_id` | 一个作用域拥有多个文档。服务端依据主体和应用授权解析 scope |
+| Document | `document_id`、`scope_id`、展示名、来源登记 | 代表逻辑资料。一份资料可有多个不可变版本 |
+| DocumentVersion | `version_id`、`document_id`、`revision`、原始文件 SHA-256、MIME、原件存储引用、采集时间、许可 | 同一文档内的修订号和内容哈希各自唯一。路径、名称和上传时间均可变化 |
+| SourceUnit | `unit_id`、`version_id`、`parser_profile_id`、页/段定位、`source_text`、文本哈希 | 单一解析快照中的原文坐标系。PDF 每页一个单元，Markdown 每个可定位段落一个单元 |
+| IndexBuild | `index_id`、`version_id`、`index_profile_id`、状态、创建/发布时间、失败码 | 同一版本和配置指纹对应一个构建记录。一个构建接入多个 Chunk |
+| Chunk | `chunk_id`、`index_id`、`unit_id`、`paragraph_id`、`start`、`end`、内容哈希 | Chunk 在同一单元、同一段落内切分。ID 由构建身份、单元及范围稳定导出 |
+| Embedding | `chunk_id`、`embedding_profile_id`、`dimension`、`vector` | 索引表按已配置维度保存。Query 和文档向量必须来自同一 Embedding 配置 |
+| Answer / Claim | `answer_id`、请求/任务 ID、状态、`claim_id`、陈述、答案中的可选跨度 | 一个答案包含多个陈述。最终呈现可由结构化陈述渲染 |
+| Evidence / Citation | `evidence_id`、来源类型、作用域、快照定位和 `citation_id`、`answer_id`、`claim_id`、`evidence_id` | 一个陈述可引用多个 Evidence，一个 Evidence 可被多个陈述引用。每条边保留绑定和校验信息 |
 
-## 2. 统一 Evidence 示例
+关系主链为 Scope → Document → DocumentVersion → SourceUnit，以及 DocumentVersion → IndexBuild → Chunk → Embedding。Chunk 引用 SourceUnit，Citation 连接 Claim 和 Evidence。索引构建、原文和证据读路径均通过所属 scope，外键或复合约束避免将来源关联到其它作用域。
+
+## 2. 原文定位与索引生命周期
+
+- PDF 页码从 1 开始，单独记录可选的印刷页标签。段落以固定版本的提取规则划分并保存边界。Markdown 保留 UTF-8 原文件、标题路径、源文件行区间和段序。所有字符范围用零基 Unicode 码点半开区间 `[start, end)`，相对于对应不可变的 `source_text`。展示片段必须等于该字符串切片。清洗用于 Embedding 的文本时单独派生内容。
+- PDF 高亮候选在 V0.2 使用可验证的 `bboxes`。记录坐标系、点单位、页面盒、旋转及提取器版本。使用带文字夹具对照渲染验证。坐标不可用时仍可按页码、段落和文本打开原文。读屏和网页若用 UTF-16 偏移，在渲染端映射。
+- 解析配置指纹涵盖解析器、版本和文本规范。索引配置指纹另含切分参数、Embedding 供应商/模型标识/版本或配置指纹、向量维度和距离类型。逐次重建保留记录。同一配置下切分位置和 Chunk ID 可重现。
+- 新导入按 scope、逻辑文件键与文件哈希复用版本，显式提供已有 document ID 可提交新修订。文件哈希以原始字节计算。上传存储使用按哈希命名的不可变对象，失败可留下待清理的未引用对象。相同构建的并发提交由唯一键和事务协调。
+- 入库在短事务外完成解析和向量生成。成功后在事务内保存索引并发布，查询只读 `ready` 构建。中途失败保持旧的发布指针。采用修订号与发布条件避免旧任务覆盖较新的发布。失败重试不产生重复 Chunk 或 Embedding。
+- V0.1 每个 collection 使用一个激活索引配置。每个文档可有多次构建，检索只读取该配置下发布的文档版本。切换向量模型或维度时先建匹配维度的索引空间，完成全量构建后切换 collection 的激活配置。查询检索和证据绑定始终使用同一请求快照。
+
+## 3. Evidence 和 Citation
+
+Evidence 通用信封包含 `evidence_id`、`scope_id`、`source_type`、`source_id`、`locator`、`content`、`content_hash`。类型化 `locator` 随来源变化。来源身份来自授权快照和位置。候选排序、得分、检索阶段与运行 ID 另记在检索轨迹中，使同一证据可跨请求重用。以下为接口示意。
 
 ~~~json
 {
-  "evidence_id": "ev_doc_0001",
+  "evidence_id": "demo-evidence-1",
+  "scope_id": "course-demo",
   "source_type": "document",
-  "scope_id": "course_demo",
-  "source_id": "doc_os_edition1",
-  "content": "页表保存虚拟页到物理页框的映射。",
+  "source_id": "demo-document",
+  "content": "页表保存映射。",
   "locator": {
-    "document_version": "v1",
+    "version_id": "demo-version-1",
+    "parser_profile_id": "demo-parser-1",
+    "unit_id": "page-12-profile-1",
     "page": 12,
-    "chunk_id": "chunk_0012",
-    "char_start": 110,
-    "char_end": 129,
-    "pdf_bboxes": []
-  },
-  "retrieval": {
-    "run_id": "ret_001",
-    "rank": 1,
-    "score": null
+    "paragraph_id": "p3",
+    "start": 0,
+    "end": 7,
+    "chunk_id": "demo-chunk-1",
+    "bboxes": []
   }
 }
 ~~~
 
-此为**接口示例**而非实际输出。对 PDF：位置可取页码、字符跨度、段落、坐标；没有可靠坐标时 pdf_bboxes 为空且 UI 退化到页码+原文片段。
+其中 `content_hash` 由持久化层根据实际内容计算。文档的来源读路径使用 `document_id`、`version_id`、`unit_id`，用户可在索引切换后复核此前回答。API DTO 可按需要裁剪取证字段。
 
-## 3. 业务 SQL 来源记录
+| 来源 | 定位与保存 | 校验 |
+| --- | --- | --- |
+| 文档 | 版本、解析配置、单元、段落、跨度、Chunk 和可选坐标 | 回读不可变原文并逐字比较。V0.2 判断这组引文对陈述提供支持、冲突或信息不足 |
+| SQL | 执行 ID、模板 ID 和版本、允许保留的参数或哈希、业务快照、结果行键/列、时间、结果摘要哈希 | 验证该执行真实成功且授权，按结果列、单位、过滤条件和快照核对数字及可复算聚合 |
+| API | 执行 ID、端点 ID、响应字段路径、时间、上游版本/快照、响应摘要哈希 | 核对授权、响应状态、结构、时间和保留的字段投影。字段缺失、快照过期或无法复核时标记不确定 |
 
-~~~json
-{
-  "evidence_id": "ev_sql_0001",
-  "source_type": "sql_result",
-  "scope_id": "enterprise_demo",
-  "source_id": "query_execution_001",
-  "content": {
-    "product_id": "p100",
-    "sales_count": 42
-  },
-  "locator": {
-    "query_template_id": "top_product_sales",
-    "parameter_hash": "recorded-at-runtime",
-    "dataset_version": "synthetic-v1",
-    "result_row_key": "p100",
-    "executed_at": "runtime-value"
-  }
-}
-~~~
+模型可提出候选证据 ID。后端只为本请求已授权的 Evidence 生成 Citation。Citation 记录 `binding_status`（已绑定）、`support_status`（`unchecked`、`supported`、`unsupported`、`contradicted`、`uncertain`）、验证器版本、依据和时间。V0.1 的有效引用处于 `unchecked`。V0.2 校验单条证据和同一陈述的证据组合，缺引用、组合支持和冲突均留痕。业务推断应标明假设，数值和事实可分别回核。
 
-原则：SQL Evidence 对应真实的执行结果、数据版本、允许查看的查询记录；不把 SQL 聚合结果伪装成 PDF 原文证据，也不能仅凭该结果推断业务因果关系。
+## 4. 课程、企业和评测数据
 
-## 4. Citation 与支持性校验
+| 数据域 | 模型与关系 |
+| --- | --- |
+| CourseRAG | `Course` 属于课程 scope，`Chapter` 有父子关系和顺序，`KnowledgePoint` 归章节并可关联多段材料。`CourseMaterial` 将章节和不可变文档版本相连。记录学期、课程授权和课程当前发布资料 |
+| EnterpriseAgent | `Product` 关联 `OrderLine`、`InventorySnapshot`，`Order` 关联订单明细。保存业务时间区间、时区、数量与币种。制度文档仍走核心，文档 scope 和业务数据角色由应用授权 |
+| Agent 执行 | `BusinessDatasetVersion` 记录快照和种子。`TaskRun` 拥有 `ToolExecution`，记录工具/模板版本、归属、状态、时间、错误码、结果投影/哈希。SQL/API Evidence 引用成功执行。会话表关联私有线程及检查点 |
+| 实验 | `EvaluationSample` 按应用和数据版本保存问题、split、可回答性、gold answer、gold evidence/结果、标签。 `EvaluationRun` 关联配置、提交和数据快照，并拥有逐例评分与轨迹。字段细则见 [评测协议](evaluation.md) |
 
-- 生成模型输出的引用仅是**候选引用请求**，必须检查 evidence_id 是否属于此次已授权检索/工具执行集合。
-- 将答案中的可验证陈述拆为 claim，再对“证据是否支持该 claim”进行标注/自动判定（supported、unsupported、contradicted、uncertain）。
-- 无证据或证据冲突需向用户显式表达；校验模型自身也可能出错，因此保留人工样本评估。
-- 文档引用准确 ≠ 模型推理过程忠实；指标中单独区分。
-- 报告可同时引用文档、SQL 和 API 证据，但各自对应不同验证器。
+## 5. 隔离与保留
 
-## 5. 数据隔离、版本与留存
-
-- 每次检索附带 scope_id，服务端强制过滤，不能只依赖前端。
-- 为课程资料保留课程、章节、学期、文档版本；不同版本冲突时明确提示。
-- 生成测试数据时固定随机种子和脚本，避免把真实敏感数据提交仓库。
-- 不将真实 API Key、数据库口令、个人隐私或完整敏感工具参数写入日志。
-- 可采用数据删除/重建策略；文档撤销后应删除对应 Embedding 和缓存引用。
+- 两应用分别配置数据库连接、运行身份、评测数据和原件存储路径。开发与生产分开。课程集合和企业知识库还使用服务端 scope 过滤，覆盖列表、检索、原文访问、会话与缓存命中。缓存键含作用域和发布配置。
+- schema 迁移使用管理凭据，核心运行账号只拥有实际所需写权限。企业查询工具另用专用只读账号和受限视图，固定表/模板、绑定参数、事务只读、数据库级超时与结果上限。
+- 版本归档保留授权原文与必要的来源指针。撤销访问后立刻停止检索和读取，清理向量、BM25 缓存和可展示快照，并在历史引用处显示不可用。最终保留策略按资料许可和环境配置执行。
+- 日志保留请求/执行 ID、模型用量、耗时、判定、错误码和必要的来源引用。结果快照按权限最小化字段并限制留存期限。环境变量中的密钥与认证头、完整敏感参数隔离于记录之外。
