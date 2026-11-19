@@ -1,0 +1,33 @@
+[project]
+name = "enterprise-rag"
+version = "0.1.0"
+description = "Versioned document retrieval and evidence-backed answers"
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "fastapi==0.165.0",
+    "httpx==0.28.1",
+    "langchain-core==1.8.3",
+    "langchain-openai==1.8.3",
+    "langsmith==0.15.0",
+    "openai==3.55.1",
+    "pgvector==0.5.1",
+    "psycopg[binary]==3.3.9",
+    "pydantic==2.14.3",
+    "pydantic-settings==2.16.3",
+    "pypdf==7.1.1",
+    "python-multipart==0.0.34",
+    "uvicorn==0.54.0",
+]
+
+[dependency-groups]
+dev = ["pytest==9.2.0"]
+
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = ["live: explicitly enabled tests against configured real models"]
