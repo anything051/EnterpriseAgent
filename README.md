@@ -1,6 +1,6 @@
 # EnterpriseRAG
 
-可信 RAG 核心为本科毕设 **CourseRAG** 和 2027 届春招项目 **EnterpriseAgent** 共用。当前 V0.2 提供本地可信 RAG API，支持中文文本 PDF、UTF-8 Markdown、混合检索、可选本地重排、结构化引用及证据校验。两个应用的界面和业务流程在后续版本交付。
+可信 RAG 核心为本科毕设 **CourseRAG** 和 2027 届春招项目 **EnterpriseAgent** 共用。当前 V0.3 提供可评测的本地可信 RAG API，支持中文文本 PDF、UTF-8 Markdown、混合检索、可选本地重排、结构化引用及证据校验。两个应用的界面和业务流程在后续版本交付。
 
 ## 本地启动
 
@@ -79,6 +79,34 @@ curl -fsS http://127.0.0.1:8000/questions \
 - 引用由服务端绑定到本次候选证据。`support_status` 表示单条引用的支持性，组合结论在 `verification.claims` 中。`gate` 模式对证据不足、冲突或回答不完整返回 `insufficient_evidence`，并提供 `refusal_reason`。依赖故障返回 HTTP 错误和请求 ID。
 - 默认每个文件最多 5 MiB，PDF 最多 100 页。保留 pypdf 的文本层，跳过空白或无文字页并报告页码。扫描件、加密 PDF 和不可信上传场景超出本地演示范围。页面旋转、几何异常或原文对齐不一致时返回 `page_only`，Markdown 返回 `text_only`。
 
+## V0.3 对照评测
+
+开发集有 10 道自编题与 4 份课程材料。运行器为每轮创建独立数据库作用域，B/C/D 共享混合检索、排序和生成。C 加审阅，D 加拒答。使用已启动的 PostgreSQL、声明在 .env 的本地模型和已核验的 BGE 文件。
+
+~~~bash
+run_id="course-dev-$(date -u +%Y%m%dT%H%M%SZ)"
+RAG_RERANKER_DIR=.rag-models/bge uv run --locked --extra rerank python -m enterprise_rag.evaluation run --run-id "$run_id" --seed 42
+uv run --locked python -m enterprise_rag.evaluation summarize "runs/$run_id"
+~~~
+
+第一条命令保存配置、逐例记录、指标和失败说明。若任一组遇到模型、数据库或重排故障，运行器仍保存各组结果并以非零状态退出。第二条命令无需数据库和模型即可重算。公开开发集的实际结果见 [A–D 报告](docs/evaluation_runs/course-dev-20261120/report.md)。该结果用于发现工程缺陷，正式毕设应另建独立测试集并进行人工复核。
+
+可选 Ragas 在独立环境中复核既有回答，记录附加审阅用量。该命令只接受本机 Ollama，评分单列。运行前用实际目录替换示例中的 `runs/<运行ID>`。
+
+~~~bash
+uv run --locked --project tools/ragas python tools/ragas/faithfulness.py --run 'runs/<运行ID>' --group B --question os-lru --output 'runs/<运行ID>/ragas.json'
+~~~
+
+## 容器模式
+
+默认 Compose 只启动数据库。`api` profile 可同时启动容器化 API。若之前已在宿主机使用模型地址索引数据，可为容器使用独立 `RAG_APP_ID` 并重新导入对应资料。Embedding 的访问地址参与索引指纹。
+
+~~~bash
+RAG_APP_ID=enterprise-rag-container docker compose --profile api up -d --build
+~~~
+
+容器默认使用 `host.docker.internal:11434`。在 Linux 主机上，Ollama 必须能从容器访问。可显式设置 `RAG_CONTAINER_CHAT_BASE_URL` 和 `RAG_CONTAINER_EMBEDDING_BASE_URL`。API 端口只在宿主机回环发布。容器基础镜像用于向量或 RRF 路径，想启用 ONNX 重排时采用上述宿主机安装方式。
+
 ## 测试
 
 使用独立的本地测试数据库。设置 `RAG_TEST_DATABASE_URL` 为已初始化的应用连接串。测试数据通过随机应用 ID 隔离。默认测试不调用模型服务。启用真实模型验收前，确认 .env 的模型配置指向预期的本地或已授权端点。
@@ -89,7 +117,7 @@ uv run --locked pytest -m 'not live'
 RAG_RUN_LIVE=1 RAG_RERANKER_DIR=.rag-models/bge uv run --locked --extra rerank pytest -m live -o log_cli=true -o log_cli_level=INFO
 ~~~
 
-真实模型验收覆盖 V0.1 回归、混合重排、PDF 坐标、组合证据、冲突和问题覆盖。应用日志可通过 Python 日志配置启用 `enterprise_rag` 的 INFO 级别，记录请求 ID、耗时、状态和可得 Token 数。测试记录与限制见 [V0.2 交接](docs/handoff/V0.2.md)。
+真实模型验收覆盖 V0.1 回归、混合重排、PDF 坐标、组合证据、冲突和问题覆盖。应用日志可通过 Python 日志配置启用 `enterprise_rag` 的 INFO 级别，记录请求 ID、耗时、状态和可得 Token 数。测试记录与限制见 [V0.3 交接](docs/handoff/V0.3.md)。
 
 ## 项目文档
 

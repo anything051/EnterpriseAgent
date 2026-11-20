@@ -1,0 +1,18 @@
+{
+  "metric": "Ragas Faithfulness 0.4.4",
+  "model": "qwen3.5:9b",
+  "group": "B",
+  "question_id": "os-lru",
+  "value": 1.0,
+  "judge_token_usage": [
+    {
+      "input": 421,
+      "output": 32
+    },
+    {
+      "input": 827,
+      "output": 96
+    }
+  ],
+  "interpretation": "Context-conditioned auxiliary metric on one selected development sample."
+}

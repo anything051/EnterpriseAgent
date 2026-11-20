@@ -5,10 +5,11 @@ from hashlib import sha256
 from pathlib import Path
 import re
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from enterprise_rag.core.citations import Answer
+from enterprise_rag.core.citations import Answer, Evidence
 from enterprise_rag.core.documents import PARSER_PROFILE_ID, ParsedDocument, parse_document
 
 Group = Literal["A", "B", "C", "D"]
@@ -101,6 +102,16 @@ class Passage(StrictModel):
     id: str
     span: Span
     content: str
+    document_id: UUID | None = None
+    version_id: UUID | None = None
+    unit_id: UUID | None = None
+    parser_profile: str | None = None
+
+    def matches_locator(self, evidence: Evidence) -> bool:
+        expected = (self.document_id, self.version_id, self.unit_id, self.parser_profile)
+        actual = (evidence.source_id, evidence.locator.version_id, evidence.locator.unit_id,
+                  evidence.locator.parser_profile_id)
+        return all(want is None or want == got for want, got in zip(expected, actual, strict=True))
 
 
 class Counts(StrictModel):

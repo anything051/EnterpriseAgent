@@ -1,0 +1,5 @@
+[project]
+name = "enterprise-rag-faithfulness"
+version = "0.3.0"
+requires-python = ">=3.11,<3.12"
+dependencies = ["ragas==0.4.4", "httpx==0.28.1"]

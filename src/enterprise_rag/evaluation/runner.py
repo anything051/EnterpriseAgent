@@ -86,8 +86,9 @@ def _passages(candidates: list[Candidate], sources: dict[UUID, Source]) -> list[
                 or not 0 <= locator.start < locator.end <= len(source.text)
                 or source.text[locator.start:locator.end] != item.content):
             raise EvaluationFailure("unresolved_candidate")
-        passages.append(Passage(id=item.evidence_id, content=item.content,
-                                span=Span(document=source.document, unit=source.unit_key,
+        passages.append(Passage(id=item.evidence_id, content=item.content, document_id=item.source_id,
+                                version_id=locator.version_id, unit_id=locator.unit_id,
+                                parser_profile=locator.parser_profile_id, span=Span(document=source.document, unit=source.unit_key,
                                           start=locator.start, end=locator.end)))
     return passages
 
@@ -148,6 +149,7 @@ def _evaluate(question: Question, scope: Scope, retriever: Retriever, chat,
         with _timed(work.phases, "review"):
             bound = answer_from_draft(draft, candidates, scope.id, answer_id, keep_unbound=True)
             if bound.citations:
+                work.usage["semantic"] = Counts()
                 judgment = chat.review(question.question, bound, reviewed)
                 for name, usage in (("semantic", judgment.semantic_usage), ("coverage", judgment.coverage_usage)):
                     if usage is not None:

@@ -1,0 +1,33 @@
+{
+  "run_id": "course-dev-20261120",
+  "raw_rows": 40,
+  "logical_group_errors": 12,
+  "run_exit_code": 1,
+  "scoring_version": "course-v0.3.1",
+  "files": {
+    "config.json": {
+      "bytes": 3551,
+      "sha256": "97a13736859cd3557bab46803edc53314061e4a985b76cfff5a00d4cfc007636"
+    },
+    "failures.md": {
+      "bytes": 1163,
+      "sha256": "1455fcfa58f0f7b98b8a8de9ab22781568d384c8d37edb7a84af1d8edc3c8965"
+    },
+    "metrics.json": {
+      "bytes": 14412,
+      "sha256": "b7adbafb3599fcc95b53670412e323a2ea805b338de4903c879c33b6d6b956fe"
+    },
+    "ragas.json": {
+      "bytes": 356,
+      "sha256": "9a7e7d8423be0889d327e87130ccb50e714cc1534cb192575cdfae2e27adf9b3"
+    },
+    "report.md": {
+      "bytes": 898,
+      "sha256": "5ec1d869a8ddeabbfaabde1789541ba1ec9d4dd71a2ea67fabc7c4cbf3a05892"
+    },
+    "samples.jsonl": {
+      "bytes": 202099,
+      "sha256": "d9c94fe6e802383c037965d989f88e1e734bb365d338a2cc627191d8645b19bb"
+    }
+  }
+}

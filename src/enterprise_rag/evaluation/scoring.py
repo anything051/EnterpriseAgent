@@ -63,7 +63,10 @@ def _citations(record: Record) -> dict:
                 counts["citation_assessed"] += 1
             passage = ranked.get(citation.evidence_id)
             bound = evidence.get(citation.evidence_id)
+            if citation.quote_span is not None:
+                counts["quotes"] += 1
             if (passage is None or bound is None or bound.content != passage.content
+                    or not passage.matches_locator(bound)
                     or sha256(bound.content.encode()).hexdigest() != bound.content_hash
                     or (bound.locator.start, bound.locator.end) != (passage.span.start, passage.span.end)):
                 continue
@@ -71,9 +74,8 @@ def _citations(record: Record) -> dict:
             if citation.quote_span is not None:
                 quote = citation.quote_span
                 start, end = quote.start - resolved.start, quote.end - resolved.start
-                if not 0 <= start < end <= len(passage.content) or passage.content[start:end] != quote.excerpt:
-                    continue
-                resolved = resolved.model_copy(update={"start": quote.start, "end": quote.end})
+                if 0 <= start < end <= len(passage.content) and passage.content[start:end] == quote.excerpt:
+                    counts["quote_resolved"] += 1
             counts["resolved"] += 1
             spans.append(resolved)
             if matched_facts and any(covers_fact(fact, [resolved]) for fact in matched_facts):
@@ -99,12 +101,11 @@ def score(record: Record) -> dict:
                             for claim in record.answer.claims) if record.answer else 0)
         accuracy = record.status == "answered" and all(checks.values()) and extra_claims == 0
         for k in KS:
-            if record.ranked is not None:
-                spans = [item.span for item in record.ranked[:k]]
-                found = sum(covers_fact(fact, spans) for fact in question.facts)
-                recall[str(k)] = found / len(question.facts)
-                hit[str(k)] = found > 0
-                all_evidence[str(k)] = found == len(question.facts)
+            spans = [item.span for item in (record.ranked or [])[:k]]
+            found = sum(covers_fact(fact, spans) for fact in question.facts)
+            recall[str(k)] = found / len(question.facts)
+            hit[str(k)] = found > 0
+            all_evidence[str(k)] = found == len(question.facts)
     else:
         checks = None
         extra_claims = None
@@ -188,12 +189,14 @@ def aggregate(rows: list[Record]) -> dict:
             "correct_refusal": _values(item["correct_refusal"] for item in scores),
             "false_refusal": _values(item["false_refusal"] for item in scores),
             "answer_coverage": _ratio(answered, len(records)),
-            "answered_accuracy": _values(metrics["answer_correct"] for row, metrics in pairs
+            "answered_accuracy": _values(bool(metrics["answer_correct"]) for row, metrics in pairs
                                          if row.status == "answered"),
+            "missing_rankings": sum(row.ranked is None for row in records),
             "citation_support": _ratio(counts["supported"], counts["assessed"]),
             "citation_coverage": _ratio(counts["supported"], counts["claims"]),
             "citation_precision": _ratio(counts["citation_supported"], counts["citation_assessed"]),
             "source_validity": _ratio(counts["resolved"], counts["citations"]),
+            "quote_validity": _ratio(counts["quote_resolved"], counts["quotes"]),
             "unjudged_cited_claims": counts["cited"] - counts["assessed"],
             "validator_agreement": dict(sorted(agreement.items())),
             "latency_ms": {
@@ -218,4 +221,4 @@ def aggregate(rows: list[Record]) -> dict:
                                        if a[1]["correct_refusal"] is not None and b[1]["correct_refusal"] is not None),
             "latency_ms_mean": mean(a[0].latency_ms - b[0].latency_ms for a, b in values) if values else None,
         }
-    return {"groups": groups, "pairs": deltas}
+    return {"scoring_version": "course-v0.3.1", "groups": groups, "pairs": deltas}
