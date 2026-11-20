@@ -1,0 +1,9 @@
+{
+  "git_sha": "66e085b0d67973c92a6d1dd718595774f4164ebc",
+  "original_source_still_readable_after_restore": true,
+  "original_enterprise_report_unchanged": true,
+  "same_project_restore_blocked": true,
+  "existing_database_restore_blocked": true,
+  "both_ui_apps_connected_to_release_api_via_apptest": true,
+  "ui_requires_credential_and_enforces_role": true
+}

@@ -11,6 +11,8 @@
 
 V1.0 提供两个独立数据库和两套界面的 Compose 发布方式。[容器部署、备份与恢复](docs/deployment.md)
 
+已归档真实模型端到端执行和双库恢复演练。[V1.0 发布验收](docs/evaluation_runs/release/v1.0.0/report.md)
+
 需要 Python 3.11、[uv](https://docs.astral.sh/uv/) 和 Docker Compose。使用 Ollama 时准备本地 Chat 与 Embedding 模型。也可分别将任一能力配置为 OpenAI API。
 
 ~~~bash

@@ -87,3 +87,7 @@ E1 和 E2 复用 V0.5 的四个业务任务与一个权限任务，再加入一�
 延迟从发起任务请求计到响应返回，包含模型、工具和检查点开销。报告保存实际调用次数、重试与 Token 覆盖。未完成任务纳入耗时统计。进程退出后复用证据单独验收，使用同一个会话和运行 ID 对照 PostgreSQL 工具记录。[执行和复算](enterprise_agent_demo.md#复现-e1e2-与故障对照)
 
 [真实 E1/E2 对照报告](evaluation_runs/enterprise/enterprise-reliability-20261120/report.md) · [真实进程重启记录](evaluation_runs/enterprise/enterprise-v06-restart.json)
+
+## 9. V1.0 双应用发布验收
+
+使用干净的 Compose 双库与本机真实模型，逐项检查入库、问答与来源、拒答、跨应用授权和企业三源报告。逻辑备份恢复到另一项目后，回查原文和持久报告，并用原有向量索引重新问答。功能用例与备份恢复单独计数。[发布验收、逐项记录与哈希](evaluation_runs/release/v1.0.0/report.md)

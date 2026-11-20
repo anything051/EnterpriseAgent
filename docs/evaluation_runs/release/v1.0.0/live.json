@@ -1,0 +1,101 @@
+{
+  "created_at": "2026-11-20T16:05:55.803740+00:00",
+  "cases": [
+    {
+      "case": "two_api_and_ui_healthchecks",
+      "status": "passed",
+      "elapsed_ms": 28.9
+    },
+    {
+      "case": "cross_app_credentials_and_host_denied",
+      "status": "passed",
+      "elapsed_ms": 76.83
+    },
+    {
+      "case": "import_pdf",
+      "status": "passed",
+      "elapsed_ms": 1256.14
+    },
+    {
+      "case": "import_markdown",
+      "status": "passed",
+      "elapsed_ms": 178.53
+    },
+    {
+      "case": "course_pdf",
+      "status": "passed",
+      "elapsed_ms": 48205.19
+    },
+    {
+      "case": "course_markdown",
+      "status": "passed",
+      "elapsed_ms": 38455.47
+    },
+    {
+      "case": "course_insufficient_evidence",
+      "status": "passed",
+      "elapsed_ms": 443.71
+    },
+    {
+      "case": "course_evaluation_export",
+      "status": "passed",
+      "elapsed_ms": 43.0
+    },
+    {
+      "case": "enterprise_report",
+      "status": "passed",
+      "elapsed_ms": 30274.69
+    },
+    {
+      "case": "enterprise_viewer_denied",
+      "status": "passed",
+      "elapsed_ms": 3.59
+    },
+    {
+      "case": "cross_course_and_cross_application_sources_denied",
+      "status": "passed",
+      "elapsed_ms": 42.85
+    }
+  ],
+  "proof": {
+    "import_pdf": "/courses/6912e76e-35f8-4fb9-861b-06f50c0ac3ad",
+    "import_markdown": "/courses/e2d37c00-1667-4e21-b520-ff162adf9a37",
+    "course_pdf": {
+      "path": "/courses/6912e76e-35f8-4fb9-861b-06f50c0ac3ad/sources/a68d8991-e8d2-4b00-8417-c2bad7f199db/4d30cc87-f514-4aeb-a8fb-fb6e08334451/0c3a0732-9fbb-57ce-96b6-ddc1691621c4",
+      "source_suffix": "/sources/a68d8991-e8d2-4b00-8417-c2bad7f199db/4d30cc87-f514-4aeb-a8fb-fb6e08334451/0c3a0732-9fbb-57ce-96b6-ddc1691621c4",
+      "source_sha256": "323033e231b19a14866855528610f9e8dcfb8d2093f20aa2de1322ddb94852a2",
+      "page": 2,
+      "start_line": null,
+      "preview": {
+        "start": 41,
+        "end": 66,
+        "sha256": "d01c2f4c75ecbb301113d977ab21427bf7e11c0182bbc7cadfc5b58bc5cbc9e3"
+      },
+      "strategy": "hybrid_rrf",
+      "request_id": "801daa461c3e4db1b1e2ffe8463c93b7"
+    },
+    "course_markdown": {
+      "path": "/courses/e2d37c00-1667-4e21-b520-ff162adf9a37/sources/82cf06aa-b801-4547-beb2-efe10e18e835/2148839e-ba1b-4d18-b19e-069871286758/03f6ee97-056c-57bf-a4ec-df325d855064",
+      "source_suffix": "/sources/82cf06aa-b801-4547-beb2-efe10e18e835/2148839e-ba1b-4d18-b19e-069871286758/03f6ee97-056c-57bf-a4ec-df325d855064",
+      "source_sha256": "51251ae2c592addd09180dcad1578a0ae18e00840a64d516a1b40aa218094328",
+      "page": null,
+      "start_line": 7,
+      "preview": null,
+      "strategy": "hybrid_rrf",
+      "request_id": "dfa0e598147a4029aec3ea6a68aee4cc"
+    },
+    "enterprise_report": {
+      "path": "/agent/threads/56b2eb30-7ab2-4b46-becb-b737d251ba82/runs/69dd27da-4512-4755-ae58-9296f4b9ad95",
+      "source_suffix": "/sources/47cda32d-c6a9-460f-867c-1fd95d5faad0/dc6149eb-cef9-4657-bb8e-b0521ac7362d/38c3f9b5-574a-53b1-a932-0c024f2ad25f",
+      "source_sha256": "6fbfccb0294c6689171133af2642a1b5644f530411b9925c6787bd6b60856d24",
+      "report_sha256": "3338bd0a52a2ecce746d0ab7aaeea30c39433d9c9462342e83951b3229a847e4",
+      "model_calls": 2,
+      "input_tokens": 930,
+      "output_tokens": 108
+    }
+  },
+  "git_sha": "66e085b0d67973c92a6d1dd718595774f4164ebc",
+  "dirty_tracked": false,
+  "image_id": "sha256:25015c1766a7033a76b3b3025fea38ce154fda959486cd5f5f69ae983da7779d",
+  "mode": "live"
+}

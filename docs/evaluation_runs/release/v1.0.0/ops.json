@@ -1,0 +1,12 @@
+{
+  "git_sha": "66e085b0d67973c92a6d1dd718595774f4164ebc",
+  "image_id": "sha256:25015c1766a7033a76b3b3025fea38ce154fda959486cd5f5f69ae983da7779d",
+  "container_platform": "linux/arm64",
+  "engine": "29.9.2",
+  "postgres_pgvector": "17.12 (Debian 17.12-1.pgdg12+1)|0.8.7",
+  "ollama": "ollama version is 0.23.1",
+  "separate_application_schemas": true,
+  "enterprise_reader_role_only": true,
+  "application_containers_non_root_read_only_without_capabilities": 5,
+  "credential_and_request_canaries_absent_from_logs": true
+}

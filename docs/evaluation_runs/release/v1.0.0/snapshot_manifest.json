@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "source_project": "enterprise-rag-v1-acceptance",
+  "created_at": "2026-11-20T16:08:07.038442+00:00",
+  "files": {
+    "course-db.dump": {
+      "database": "enterprise_rag",
+      "bytes": 68179,
+      "sha256": "f353cea5eefe5c951cfb6e9fea185a7449accb7f983eef4a2f2f3c94fc96dc89"
+    },
+    "enterprise-db.dump": {
+      "database": "enterprise_rag",
+      "bytes": 72944,
+      "sha256": "411001bb7897839a6a07af1425ebde3bcef6aa203ee90be617853501bc57952d"
+    }
+  }
+}
