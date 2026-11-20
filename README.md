@@ -3,7 +3,7 @@
 可信 RAG 核心为本科毕设 **CourseRAG** 和 2027 届春招项目 **EnterpriseAgent** 共用。两个应用有各自的入口、作用域、演示数据和评测。
 
 - **CourseRAG V0.4** 提供课程目录、材料版本、可信问答、PDF 原文高亮及开发评测归档导出。[CourseRAG 启动与演示](docs/course_rag_demo.md)
-- **EnterpriseAgent V0.5** 使用 LangGraph、真实工具调用、只读销售查询、库存 HTTP API 和仓库制度检索，生成可回查的业务报告。[EnterpriseAgent 启动与演示](docs/enterprise_agent_demo.md)
+- **EnterpriseAgent V0.6** 使用 LangGraph 协调主管、数据、知识与报告四个角色，持续保存会话及已验证的只读工具结果。单智能体保留作对照。[EnterpriseAgent 启动与演示](docs/enterprise_agent_demo.md)
 
 共享 API 支持中文文本 PDF、UTF-8 Markdown、混合检索、可选本地重排、结构化引用和证据校验。
 

@@ -220,7 +220,7 @@ def run(run_id: str, root: Path) -> Path:
     _write(destination / "config.json", config)
     with ExitStack() as stack:
         clients = {group: stack.enter_context(TestClient(create_enterprise_app(
-            settings, analyst_token=analyst, viewer_token=viewer, include_policy=group == "E1",
+            settings, analyst_token=analyst, viewer_token=viewer, include_policy=group == "E1", enable_sessions=False,
         ))) for group in GROUPS}
         seed = clients["E1"].post("/agent/demo/policy", headers=roles["analyst"])
         seed.raise_for_status()

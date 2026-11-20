@@ -103,6 +103,21 @@ def _usage(calls: list[dict], key: str) -> int | None:
     return sum(values) if values and all(type(value) is int and value >= 0 for value in values) else None
 
 
+def authorized_arguments(role: Role, enabled, task: TaskInput, name: str, args: dict, invalid: str | None = None):
+    if name not in TOOLS:
+        raise ToolFailure("tool_unavailable")
+    if name not in ROLE_TOOLS[role]:
+        raise ToolFailure("permission_denied")
+    if name not in enabled:
+        raise ToolFailure("tool_not_enabled")
+    if invalid:
+        raise ToolFailure(invalid)
+    params = TOOLS[name].model_validate(args)
+    if any(getattr(task, field) != value for field, value in params.model_dump().items() if field != "topic"):
+        raise ToolFailure("outside_task")
+    return params
+
+
 class AgentWorkflow:
     def __init__(self, planner: Planner, tools: BusinessTools, *, include_policy: bool = True):
         self.planner = planner
@@ -156,18 +171,8 @@ class AgentWorkflow:
 
     def _authorized_arguments(self, state: RunState, call: dict, results: dict):
         name = call["name"]
-        if name not in TOOLS:
-            raise ToolFailure("tool_unavailable")
-        if name not in ROLE_TOOLS[state["role"]]:
-            raise ToolFailure("permission_denied")
-        if name not in state["enabled"]:
-            raise ToolFailure("tool_not_enabled")
-        if call["id"] in state["invalid_ids"]:
-            raise ToolFailure(state["invalid_ids"][call["id"]])
-        params = TOOLS[name].model_validate(call["args"])
-        task = state["task"]
-        if any(getattr(task, field) != value for field, value in params.model_dump().items() if field != "topic"):
-            raise ToolFailure("outside_task")
+        params = authorized_arguments(state["role"], state["enabled"], state["task"], name, call["args"],
+                                      state["invalid_ids"].get(call["id"]))
         if name in results:
             raise ToolFailure("already_obtained")
         return params

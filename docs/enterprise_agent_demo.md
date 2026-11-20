@@ -1,6 +1,6 @@
 # EnterpriseAgent 本地演示
 
-V0.5 使用合成的青禾公司业务快照 `qh-2026-06-v1`。分析员可查询销售、库存、仓库制度或三源汇总。制度查阅角色只可查看制度。所有结果均随报告记录来源和对应工具调用。
+EnterpriseAgent 使用合成的青禾公司业务快照 `qh-2026-06-v1`。分析员可查询销售、库存、仓库制度或三源汇总。制度查阅角色只可查看制度。V0.6 工作台把报告保存在当前令牌与角色的会话中。
 
 ## 配置与启动
 
@@ -13,6 +13,12 @@ set -a
 . ./.env
 set +a
 docker compose exec -e ENTERPRISE_DB_READER_PASSWORD -T db psql -v ON_ERROR_STOP=1 -U rag_owner -d enterprise_rag < migrations/enterprise_agent/005_business_snapshot.sql
+~~~
+
+从 V0.5 升级时，对已有数据卷应用会话迁移，再启动企业 API。空数据卷会自动应用 `006_agent_state.sql`。企业 API 首次启动会在专用 schema 初始化 LangGraph 检查点表。独立的 `ENTERPRISE_RAG_DATABASE_URL` 也需要应用此迁移。
+
+~~~bash
+docker compose exec -T db psql -v ON_ERROR_STOP=1 -U rag_owner -d enterprise_rag < migrations/enterprise_agent/006_agent_state.sql
 ~~~
 
 在仓库根目录开三个终端，分别启动库存 HTTP 服务、业务 API 和 Streamlit。若启用了本地 BGE 重排，在三条 `uv run` 命令都加 `--extra rerank`。
@@ -33,9 +39,12 @@ uv run --locked --extra agent streamlit run src/enterprise_rag/apps/enterprise_a
 
 1. 打开 [业务工作台](http://127.0.0.1:8502)，输入分析员令牌，点击「载入演示制度」。
 2. 选择「业务概览」，使用默认的 2026-06-01、华东、A100，生成报告。固定销售数据为 2 笔订单、12 件、¥1,450.00。A100 在库 18 件、预留 5 件、可用 13 件。制度证据可回读「须在 24 小时内登记差异」及其原文偏移。
-3. 展开来源和工具调用记录，核对 SQL 的查询模板、绑定参数与快照，库存 HTTP 的返回字段，以及制度的文档版本和行号。换用制度查阅令牌，界面只显示制度任务。
+3. 展开来源和工具调用记录，核对 SQL 模板与参数、库存 HTTP 返回字段、制度文档版本，以及四个角色的运行顺序。刷新页面后可重新打开保存的会话。换用制度查阅令牌，销售报告与分析员的会话入口都不可见。
+4. 若 API 进程在任务运行中退出，重启服务，再用原令牌打开原会话，选择未完成记录并点击「继续任务」。已提交的成功工具结果会复用。任务原有的模型、工具和时间预算仍然有效。
 
-接口文档在 [本地 API 文档](http://127.0.0.1:8002/docs)。`POST /agent/tasks` 使用结构化任务范围与自然语言描述，`kind` 支持 `overview`、`sales`、`inventory`、`policy`。销售和库存的可用日期、地区、商品以固定演示快照为准。报告只采用已配置模板和校验后的来源。遇到依赖错误时，返回已核实的部分结果、缺失来源和审计。
+接口文档在 [本地 API 文档](http://127.0.0.1:8002/docs)。`POST /agent/tasks` 保留 V0.5 单智能体。V0.6 先用 `POST /agent/threads` 创建会话，再用 `PUT /agent/threads/{thread_id}/runs/{run_id}` 提交任务。客户端生成 UUID 作为运行 ID，相同任务重复提交时返回同一报告。发生中断可调用 `POST /agent/threads/{thread_id}/runs/{run_id}/resume`。查询历史使用 `GET /agent/threads/{thread_id}/runs`。两种入口都接受 `overview`、`sales`、`inventory` 与 `policy` 四种任务。
+
+会话访问同时依赖原角色和原令牌，更换令牌后历史会话不再可访问。V0.6 保留最近三条同会话任务概要，供角色理解上下文，任务的显式日期、地区和商品继续决定实际工具范围。工作流只重试明确的暂时性错误。依赖故障时显示已核验的证据及缺失来源。
 
 ## 复现 E0/E1
 
@@ -47,3 +56,12 @@ uv run --locked --extra agent python -m enterprise_rag.apps.enterprise_agent.eva
 ~~~
 
 评测保存配置、逐例响应、来源回查结果、指标和失败说明。授权阻断单列。没有模型用量的样本保留为缺失值。常规测试使用独立的测试数据库，分别设置 `RAG_TEST_DATABASE_URL` 与 `ENTERPRISE_TEST_READER_URL`。[案例与判分依据](../data/enterprise_agent/evaluation/v0.5.0/cases.json)
+
+## 复现 E1/E2 与故障对照
+
+~~~bash
+uv run --locked --extra agent python -m enterprise_rag.apps.enterprise_agent.evaluate_reliability run --run-id enterprise-reliability-local
+uv run --locked --extra agent python -m enterprise_rag.apps.enterprise_agent.evaluate_reliability summarize runs/enterprise/enterprise-reliability-local
+~~~
+
+固定故障包含一次库存超时和始终返回无效数据。关闭重试组仅执行两条故障任务。运行真实模型时仍由本机库存服务提供正常结果。[故障清单](../data/enterprise_agent/evaluation/v0.6.0/faults.json)

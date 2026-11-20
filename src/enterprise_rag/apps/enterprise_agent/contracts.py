@@ -97,6 +97,14 @@ class ToolAudit(BaseModel):
     code: str
     elapsed_ms: float
     evidence_id: str | None = None
+    execution_key: str | None = None
+    attempt: int = 1
+    reused: bool = False
+
+
+class AgentStep(BaseModel):
+    name: Literal["supervisor", "data_agent", "knowledge_agent", "report_agent"]
+    elapsed_ms: float
 
 
 class ReportSection(BaseModel):
@@ -118,3 +126,6 @@ class AgentReport(BaseModel):
     elapsed_ms: float
     input_tokens: int | None
     output_tokens: int | None
+    agent_steps: list[AgentStep] = Field(default_factory=list)
+    retries: int = 0
+    reused_results: int = 0

@@ -87,7 +87,7 @@ def create_app(settings: Settings | None = None, service: RAGService | None = No
             if reranker is not None:
                 reranker.close()
 
-    app = FastAPI(title=title, version="0.5.0", lifespan=lifespan)
+    app = FastAPI(title=title, version="0.6.0", lifespan=lifespan)
     core = APIRouter()
 
     @app.middleware("http")

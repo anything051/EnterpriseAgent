@@ -1,0 +1,15 @@
+{
+  "version": "enterprise-reliability-dev-v0.6.0",
+  "cases": [
+    {
+      "id": "inventory-transient", "parent": "east-overview",
+      "fault": "inventory_timeout_once",
+      "expected_behavior": "Retry within budget and return all three sources if the underlying read succeeds."
+    },
+    {
+      "id": "inventory-permanent", "parent": "south-overview",
+      "fault": "inventory_invalid_always",
+      "expected_behavior": "Keep verified sales and policy evidence and omit invalid inventory evidence."
+    }
+  ]
+}

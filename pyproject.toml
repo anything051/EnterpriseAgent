@@ -1,6 +1,6 @@
 [project]
 name = "enterprise-rag"
-version = "0.5.0"
+version = "0.6.0"
 description = "Versioned document retrieval and evidence-backed answers"
 readme = "README.md"
 requires-python = ">=3.11,<3.12"
@@ -28,7 +28,7 @@ dependencies = [
 [project.optional-dependencies]
 rerank = ["onnxruntime==1.32.0", "tokenizers==0.23.3"]
 course = ["python-dotenv==1.2.4", "streamlit==1.67.0"]
-agent = ["langgraph==1.2.23", "python-dotenv==1.2.4", "streamlit==1.67.0"]
+agent = ["langgraph==1.2.23", "langgraph-checkpoint-postgres==3.2.1", "python-dotenv==1.2.4", "streamlit==1.67.0"]
 
 [dependency-groups]
 dev = ["pytest==9.2.0"]

@@ -58,6 +58,9 @@ class InventoryClient:
             return item
         except httpx.TimeoutException as error:
             raise ToolFailure("inventory_timeout") from error
+        except httpx.HTTPStatusError as error:
+            code = "inventory_unavailable" if error.response.status_code in (500, 502, 503, 504) else "inventory_rejected"
+            raise ToolFailure(code) from error
         except httpx.HTTPError as error:
             raise ToolFailure("inventory_unavailable") from error
         except (ValidationError, ValueError, TypeError) as error:

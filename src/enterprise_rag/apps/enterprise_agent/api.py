@@ -1,5 +1,7 @@
 """Independent EnterpriseAgent API and server-resolved operator roles."""
 
+from dataclasses import dataclass
+from hashlib import sha256
 from hmac import compare_digest
 import logging
 import re
@@ -8,20 +10,33 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, Response
 from fastapi.security import HTTPAuthorizationCredentials
-from pydantic import Field, SecretStr, model_validator
+from pydantic import BaseModel, Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from enterprise_rag.api.main import IngestResponse, bearer, create_app
+from enterprise_rag.api.main import IngestResponse, _error, bearer, create_app
 from enterprise_rag.config import SLUG_RE, TOKEN_RE, Settings
 from enterprise_rag.core.documents import Scope, SourceView
 from enterprise_rag.core.service import RAGService
 
 from .agents.planner import Planner, create_planner
+from .agents.sessions import SessionService
+from .agents.state_store import AgentThread, SessionConflict, SessionRun, SessionStore
 from .agents.workflow import AgentWorkflow
 from .contracts import AgentReport, Role, TaskInput
 from .tools import BusinessTools, InventoryClient, POLICY_FILENAME, POLICY_PATH, SalesRepository
 
 LOGGER = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class Operator:
+    role: Role
+    owner_id: str
+
+
+class SessionInfo(BaseModel):
+    role: Role
+    threads_enabled: bool
 
 
 class EnterpriseSettings(BaseSettings):
@@ -58,6 +73,10 @@ def create_enterprise_app(
     analyst_token: str | None = None,
     viewer_token: str | None = None,
     include_policy: bool = True,
+    session_store: SessionStore | None = None,
+    enable_sessions: bool = True,
+    session_retry: bool = True,
+    inventory_client: InventoryClient | None = None,
 ) -> FastAPI:
     config = None
     if settings is None or tools is None or analyst_token is None or viewer_token is None:
@@ -76,28 +95,36 @@ def create_enterprise_app(
     if compare_digest(analyst_token.encode(), viewer_token.encode()):
         raise ValueError("EnterpriseAgent role tokens must differ")
     settings = settings.model_copy(update={"embedding_timeout": min(settings.embedding_timeout, 8)})
-    roles = {"analyst": analyst_token.encode(), "viewer": viewer_token.encode()}
+    roles = [("analyst", analyst_token.encode()), ("viewer", viewer_token.encode())]
 
-    def authenticate(credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)]) -> Role:
+    def operator(credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)]) -> Operator:
         if credentials:
-            role = next((name for name, token in roles.items()
-                         if compare_digest(credentials.credentials.encode(), token)), None)
+            raw = credentials.credentials.encode()
+            role = next((name for name, token in roles if compare_digest(raw, token)), None)
             if role is not None:
-                return role
+                owner = sha256(b"enterprise-thread-v1\0" + role.encode() + b"\0" + raw).hexdigest()
+                return Operator(role, owner)
         raise HTTPException(401, "EnterpriseAgent credentials are required.", headers={"WWW-Authenticate": "Bearer"})
+
+    def authenticate(identity: Annotated[Operator, Depends(operator)]) -> Role:
+        return identity.role
 
     def register(app: FastAPI, rag: RAGService) -> None:
         scope = policy_scope(settings.app_id)
         business = tools
         if business is None:
             business = BusinessTools(SalesRepository(config.reader_url.get_secret_value()),
-                                     InventoryClient.from_url(config.inventory_url), rag, scope)
-        workflow = AgentWorkflow(planner or create_planner(settings), business, include_policy=include_policy)
+                                     inventory_client or InventoryClient.from_url(config.inventory_url), rag, scope)
+        plan = planner or create_planner(settings)
+        workflow = AgentWorkflow(plan, business, include_policy=include_policy)
         router = APIRouter(prefix="/agent")
+        store = session_store if include_policy and enable_sessions else None
+        if store is None and include_policy and enable_sessions and service is None:
+            store = SessionStore(settings.database_url.get_secret_value(), settings.app_id)
 
         @router.get("/session")
-        def session(role: Annotated[Role, Depends(authenticate)]) -> dict[str, Role]:
-            return {"role": role}
+        def session(role: Annotated[Role, Depends(authenticate)]) -> SessionInfo:
+            return SessionInfo(role=role, threads_enabled=store is not None)
 
         @router.post("/tasks", max_body_size=16 * 1024)
         def task(request: Request, data: TaskInput, role: Annotated[Role, Depends(authenticate)]) -> AgentReport:
@@ -122,6 +149,35 @@ def create_enterprise_app(
         def source(document_id: UUID, version_id: UUID, unit_id: UUID,
                    _role: Annotated[Role, Depends(authenticate)]) -> SourceView:
             return business.policy_source(document_id, version_id, unit_id)
+
+        if store is not None:
+            sessions = SessionService(store, plan, business, retry=session_retry)
+
+            @app.exception_handler(SessionConflict)
+            async def thread_conflict(request: Request, error: SessionConflict):
+                return _error(request, 409, "thread_conflict", str(error))
+
+            @router.post("/threads", status_code=201, max_body_size=1024)
+            def create_thread(identity: Annotated[Operator, Depends(operator)]) -> AgentThread:
+                return store.create_thread(identity.owner_id, identity.role)
+
+            @router.get("/threads")
+            def list_threads(identity: Annotated[Operator, Depends(operator)]) -> list[AgentThread]:
+                return store.list_threads(identity.owner_id)
+
+            @router.get("/threads/{thread_id}/runs")
+            def runs(thread_id: UUID, identity: Annotated[Operator, Depends(operator)]) -> list[SessionRun]:
+                return store.history(identity.owner_id, thread_id)
+
+            @router.put("/threads/{thread_id}/runs/{run_id}", max_body_size=16 * 1024)
+            def start(thread_id: UUID, run_id: UUID, task: TaskInput,
+                      identity: Annotated[Operator, Depends(operator)]) -> SessionRun:
+                return sessions.start(identity.owner_id, identity.role, thread_id, run_id, task)
+
+            @router.post("/threads/{thread_id}/runs/{run_id}/resume", max_body_size=1024)
+            def resume(thread_id: UUID, run_id: UUID,
+                       identity: Annotated[Operator, Depends(operator)]) -> SessionRun:
+                return sessions.resume(identity.owner_id, identity.role, thread_id, run_id)
 
         app.include_router(router)
 
