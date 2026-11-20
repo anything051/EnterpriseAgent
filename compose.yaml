@@ -1,6 +1,6 @@
 services:
   db:
-    image: pgvector/pgvector:0.8.7-pg17
+    image: pgvector/pgvector:0.8.7-pg17@sha256:b513c48566e4777cd3370451400000c78eda6a08131d68f4c31d4a76f27bd8fd
     environment:
       POSTGRES_USER: rag_owner
       POSTGRES_PASSWORD: ${RAG_DB_OWNER_PASSWORD:?Set RAG_DB_OWNER_PASSWORD in .env}
@@ -36,7 +36,8 @@ services:
       RAG_CHAT_MODEL: ${RAG_CHAT_MODEL:-qwen3.5:9b}
       RAG_CHAT_API_KEY: ${RAG_CHAT_API_KEY:-}
       RAG_CHAT_TIMEOUT: ${RAG_CHAT_TIMEOUT:-90}
-      RAG_CHAT_BASE_URL: ${RAG_CONTAINER_CHAT_BASE_URL:-http://host.docker.internal:11434}
+      RAG_OLLAMA_BASE_URL: ${RAG_CONTAINER_OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      RAG_CHAT_BASE_URL: ${RAG_CONTAINER_CHAT_BASE_URL:-}
       RAG_EMBEDDING_PROVIDER: ${RAG_EMBEDDING_PROVIDER:-ollama}
       RAG_EMBEDDING_MODEL: ${RAG_EMBEDDING_MODEL:-nomic-embed-text:latest}
       RAG_EMBEDDING_API_KEY: ${RAG_EMBEDDING_API_KEY:-}
@@ -47,7 +48,7 @@ services:
       RAG_EMBEDDING_TIMEOUT: ${RAG_EMBEDDING_TIMEOUT:-30}
       RAG_RETRIEVAL_MODE: ${RAG_RETRIEVAL_MODE:-hybrid}
       RAG_VALIDATION_MODE: ${RAG_VALIDATION_MODE:-gate}
-      RAG_EMBEDDING_BASE_URL: ${RAG_CONTAINER_EMBEDDING_BASE_URL:-http://host.docker.internal:11434}
+      RAG_EMBEDDING_BASE_URL: ${RAG_CONTAINER_EMBEDDING_BASE_URL:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:

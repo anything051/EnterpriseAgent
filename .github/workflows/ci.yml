@@ -46,3 +46,34 @@ jobs:
       - name: Stop database
         if: always()
         run: docker compose stop db
+
+  release-containers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+      - name: Prepare isolated release fixture
+        shell: bash
+        run: |
+          umask 077
+          {
+            for key in COURSE_DB_OWNER_PASSWORD COURSE_DB_APP_PASSWORD ENTERPRISE_DB_OWNER_PASSWORD ENTERPRISE_DB_APP_PASSWORD ENTERPRISE_DB_READER_PASSWORD COURSE_RAG_TOKEN ENTERPRISE_ANALYST_TOKEN ENTERPRISE_VIEWER_TOKEN; do
+              printf '%s=%s\n' "$key" "$(openssl rand -hex 24)"
+            done
+            sed -n '/^RAG_EMBEDDING_REVISION=/p' .env.release.example
+          } > "$RUNNER_TEMP/enterprise-release.env"
+      - name: Build and start both application stacks
+        run: |
+          python3 tools/release/check_config.py --env-file "$RUNNER_TEMP/enterprise-release.env"
+          docker compose --env-file "$RUNNER_TEMP/enterprise-release.env" -f compose.release.yaml -p ci-release config --quiet
+          docker compose --env-file "$RUNNER_TEMP/enterprise-release.env" -f compose.release.yaml -p ci-release build course-api
+          docker compose --env-file "$RUNNER_TEMP/enterprise-release.env" -f compose.release.yaml -p ci-release up -d --wait --wait-timeout 120 --no-build
+          curl --fail --silent http://127.0.0.1:8001/readyz
+          curl --fail --silent http://127.0.0.1:8002/readyz
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8001/courses)" = 401
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8002/agent/threads)" = 401
+      - name: Stop release fixture
+        if: always()
+        run: docker compose --env-file "$RUNNER_TEMP/enterprise-release.env" -f compose.release.yaml -p ci-release stop

@@ -164,4 +164,5 @@ def create_course_app(settings: Settings | None = None, service: RAGService | No
 
         app.include_router(router)
 
-    return create_app(settings, service, expose_core=False, register=register, title="CourseRAG")
+    return create_app(settings, service, expose_core=False, register=register, title="CourseRAG",
+                      ready_relations=(("course_rag", "courses"), ("course_rag", "materials")))

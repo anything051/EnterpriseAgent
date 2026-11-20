@@ -1,6 +1,6 @@
 [project]
 name = "enterprise-rag"
-version = "0.6.0"
+version = "1.0.0"
 description = "Versioned document retrieval and evidence-backed answers"
 readme = "README.md"
 requires-python = ">=3.11,<3.12"

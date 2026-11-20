@@ -1,5 +1,6 @@
 """Streamlit workbench for a local CourseRAG operator."""
 
+from hashlib import sha256
 import os
 
 import httpx
@@ -264,7 +265,12 @@ def main() -> None:
     st.markdown(STYLE, unsafe_allow_html=True)
     with st.sidebar:
         st.title("CourseRAG")
-        token = os.environ.get("COURSE_RAG_TOKEN") or st.text_input("课程令牌", type="password")
+        token = st.text_input("课程令牌", type="password")
+        identity = sha256(token.encode()).hexdigest()
+        if st.session_state.get("course_operator") != identity:
+            for key in ("course_answers", "active_course", "created_course", "course_notice"):
+                st.session_state.pop(key, None)
+            st.session_state["course_operator"] = identity
         if not token:
             st.info("输入本地课程服务的访问令牌。")
             return

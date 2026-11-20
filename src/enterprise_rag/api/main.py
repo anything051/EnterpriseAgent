@@ -8,12 +8,14 @@ from typing import Annotated, Callable, Literal
 from uuid import UUID, uuid4
 
 import psycopg
+from psycopg import sql
 from fastapi import APIRouter, Depends, FastAPI, File, Form, HTTPException, Query, Request, Response, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from enterprise_rag.adapters.models import create_models
 from enterprise_rag.adapters.pdf_highlight import Highlight, locate_span
@@ -68,7 +70,8 @@ def _error(request: Request, status: int, code: str, message: str, headers: dict
 
 def create_app(settings: Settings | None = None, service: RAGService | None = None, *,
                register: Callable[[FastAPI, RAGService], None] | None = None,
-               expose_core: bool = True, title: str = "EnterpriseRAG") -> FastAPI:
+               expose_core: bool = True, title: str = "EnterpriseRAG",
+               ready_relations: tuple[tuple[str, str], ...] = ()) -> FastAPI:
     settings = settings if settings is not None else Settings()
     reranker = None
     if service is None:
@@ -87,7 +90,9 @@ def create_app(settings: Settings | None = None, service: RAGService | None = No
             if reranker is not None:
                 reranker.close()
 
-    app = FastAPI(title=title, version="0.6.0", lifespan=lifespan)
+    app = FastAPI(title=title, version="1.0.0", lifespan=lifespan)
+    if settings.trusted_hosts:
+        app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.trusted_hosts, www_redirect=False)
     core = APIRouter()
 
     @app.middleware("http")
@@ -95,13 +100,21 @@ def create_app(settings: Settings | None = None, service: RAGService | None = No
         request_id = uuid4().hex
         request.state.request_id = request_id
         started = perf_counter()
-        response = await call_next(request)
+        try:
+            response = await call_next(request)
+        except Exception as error:
+            logger.error("unexpected_error request_id=%s type=%s", request_id, type(error).__name__)
+            response = _error(request, 500, "internal_error", "The request could not be completed.")
         if response.status_code == 413 and not response.headers.get("content-type", "").startswith("application/json"):
             code = "document_too_large" if request.url.path == "/documents" else "request_too_large"
             response = _error(request, 413, code, "The request exceeds the allowed size.")
         response.headers["X-Request-ID"] = request_id
+        response.headers["Cache-Control"] = "private, no-store"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        method = request.method if request.method in {"GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"} else "OTHER"
         logger.info("request_id=%s method=%s route=%s status=%s elapsed_ms=%.1f",
-                    request_id, request.method, getattr(request.scope.get("route"), "path", "<unmatched>"),
+                    request_id, method, getattr(request.scope.get("route"), "path", "<unmatched>"),
                     response.status_code, (perf_counter() - started) * 1000)
         return response
 
@@ -156,6 +169,14 @@ def create_app(settings: Settings | None = None, service: RAGService | None = No
     @app.get("/healthz")
     def healthz() -> dict[str, str]:
         return {"status": "ok"}
+
+    @app.get("/readyz", include_in_schema=False)
+    def readyz() -> dict[str, str]:
+        with psycopg.connect(settings.database_url.get_secret_value(), connect_timeout=3,
+                             options="-c statement_timeout=2000 -c lock_timeout=1000") as conn:
+            for relation in (("rag", "collections"), *ready_relations):
+                conn.execute(sql.SQL("SELECT 1 FROM {} LIMIT 0").format(sql.Identifier(*relation)))
+        return {"status": "ready"}
 
     @core.post("/documents", status_code=201, response_model=IngestResponse,
               responses={200: {"model": IngestResponse, "description": "Already indexed"}},

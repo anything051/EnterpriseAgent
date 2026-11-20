@@ -9,6 +9,8 @@
 
 ## 本地启动
 
+V1.0 提供两个独立数据库和两套界面的 Compose 发布方式。[容器部署、备份与恢复](docs/deployment.md)
+
 需要 Python 3.11、[uv](https://docs.astral.sh/uv/) 和 Docker Compose。使用 Ollama 时准备本地 Chat 与 Embedding 模型。也可分别将任一能力配置为 OpenAI API。
 
 ~~~bash
@@ -110,7 +112,7 @@ uv run --locked --project tools/ragas python tools/ragas/faithfulness.py --run '
 RAG_APP_ID=enterprise-rag-container docker compose --profile api up -d --build
 ~~~
 
-容器默认使用 `host.docker.internal:11434`。在 Linux 主机上，Ollama 必须能从容器访问。可显式设置 `RAG_CONTAINER_CHAT_BASE_URL` 和 `RAG_CONTAINER_EMBEDDING_BASE_URL`。API 端口只在宿主机回环发布。容器基础镜像用于向量或 RRF 路径，想启用 ONNX 重排时采用上述宿主机安装方式。
+容器默认使用 `host.docker.internal:11434` 连接 Ollama。Linux 上需配置容器可达的 Ollama 地址。可分别设置 `RAG_CONTAINER_CHAT_BASE_URL` 和 `RAG_CONTAINER_EMBEDDING_BASE_URL`，OpenAI 默认使用官方 HTTPS API。基础 profile 适合向量或 RRF 路径，V1.0 双应用配置见部署指南。
 
 ## 测试
 

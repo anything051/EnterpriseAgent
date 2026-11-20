@@ -1,0 +1,169 @@
+x-db: &db
+  image: pgvector/pgvector:0.8.7-pg17@sha256:b513c48566e4777cd3370451400000c78eda6a08131d68f4c31d4a76f27bd8fd
+  healthcheck:
+    test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "rag_owner", "-d", "enterprise_rag"]
+    interval: 3s
+    timeout: 3s
+    retries: 30
+
+x-runtime: &runtime
+  image: enterprise-rag-release:1.0.0
+  build:
+    context: .
+    target: release
+  init: true
+  read_only: true
+  tmpfs: ["/tmp:rw,nosuid,nodev,size=128m,mode=1777"]
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  logging:
+    driver: json-file
+    options: {max-size: "10m", max-file: "3"}
+
+x-models: &models
+  RAG_OLLAMA_BASE_URL: ${RAG_CONTAINER_OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+  RAG_CHAT_PROVIDER: ${RAG_CHAT_PROVIDER:-ollama}
+  RAG_CHAT_MODEL: ${RAG_CHAT_MODEL:-qwen3.5:9b}
+  RAG_CHAT_BASE_URL: ${RAG_CONTAINER_CHAT_BASE_URL:-}
+  RAG_CHAT_API_KEY: ${RAG_CHAT_API_KEY:-}
+  RAG_CHAT_TIMEOUT: ${RAG_CHAT_TIMEOUT:-90}
+  RAG_EMBEDDING_PROVIDER: ${RAG_EMBEDDING_PROVIDER:-ollama}
+  RAG_EMBEDDING_MODEL: ${RAG_EMBEDDING_MODEL:-nomic-embed-text:latest}
+  RAG_EMBEDDING_BASE_URL: ${RAG_CONTAINER_EMBEDDING_BASE_URL:-}
+  RAG_EMBEDDING_API_KEY: ${RAG_EMBEDDING_API_KEY:-}
+  RAG_EMBEDDING_REVISION: ${RAG_EMBEDDING_REVISION:?Set the embedding artifact revision}
+  RAG_EMBEDDING_DIMENSION: ${RAG_EMBEDDING_DIMENSION:-768}
+  RAG_EMBEDDING_DOCUMENT_PREFIX: "${RAG_EMBEDDING_DOCUMENT_PREFIX:-search_document: }"
+  RAG_EMBEDDING_QUERY_PREFIX: "${RAG_EMBEDDING_QUERY_PREFIX:-search_query: }"
+  RAG_RETRIEVAL_MODE: ${RAG_RETRIEVAL_MODE:-hybrid}
+  RAG_VALIDATION_MODE: gate
+  LANGSMITH_TRACING: "false"
+  LANGCHAIN_TRACING_V2: "false"
+
+x-health: &http-health
+  interval: 3s
+  timeout: 3s
+  retries: 30
+  start_period: 4s
+
+x-api-health: &api-health
+  <<: *http-health
+  test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/readyz', timeout=2).close()"]
+
+x-ui-health: &ui-health
+  <<: *http-health
+  test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8501/_stcore/health', timeout=2).close()"]
+
+services:
+  course-db:
+    <<: *db
+    environment:
+      POSTGRES_USER: rag_owner
+      POSTGRES_DB: enterprise_rag
+      POSTGRES_PASSWORD: ${COURSE_DB_OWNER_PASSWORD:?Set course owner password}
+      RAG_DB_APP_PASSWORD: ${COURSE_DB_APP_PASSWORD:?Set course runtime password}
+    networks: [course]
+    volumes:
+      - course_data:/var/lib/postgresql/data
+      - ./migrations/core/001_initial.sql:/docker-entrypoint-initdb.d/01_initial.sql:ro
+      - ./migrations/core/002_runtime_role.sql:/docker-entrypoint-initdb.d/02_runtime_role.sql:ro
+      - ./migrations/core/003_highlight_source.sql:/docker-entrypoint-initdb.d/03_highlight_source.sql:ro
+      - ./migrations/course_rag/004_catalog.sql:/docker-entrypoint-initdb.d/04_course_catalog.sql:ro
+
+  enterprise-db:
+    <<: *db
+    environment:
+      POSTGRES_USER: rag_owner
+      POSTGRES_DB: enterprise_rag
+      POSTGRES_PASSWORD: ${ENTERPRISE_DB_OWNER_PASSWORD:?Set enterprise owner password}
+      RAG_DB_APP_PASSWORD: ${ENTERPRISE_DB_APP_PASSWORD:?Set enterprise runtime password}
+      ENTERPRISE_DB_READER_PASSWORD: ${ENTERPRISE_DB_READER_PASSWORD:?Set enterprise reader password}
+    networks: [enterprise]
+    volumes:
+      - enterprise_data:/var/lib/postgresql/data
+      - ./migrations/core/001_initial.sql:/docker-entrypoint-initdb.d/01_initial.sql:ro
+      - ./migrations/core/002_runtime_role.sql:/docker-entrypoint-initdb.d/02_runtime_role.sql:ro
+      - ./migrations/core/003_highlight_source.sql:/docker-entrypoint-initdb.d/03_highlight_source.sql:ro
+      - ./migrations/enterprise_agent/005_business_snapshot.sql:/docker-entrypoint-initdb.d/05_business_snapshot.sql:ro
+      - ./migrations/enterprise_agent/006_agent_state.sql:/docker-entrypoint-initdb.d/06_agent_state.sql:ro
+
+  course-api:
+    <<: *runtime
+    command: ["uvicorn", "enterprise_rag.apps.course_rag.api:create_course_app", "--factory", "--host", "0.0.0.0",
+              "--no-access-log", "--no-proxy-headers", "--log-config", "tools/release/uvicorn.json"]
+    environment:
+      <<: *models
+      RAG_TRUSTED_HOSTS: '["127.0.0.1","localhost","course-api"]'
+      COURSE_RAG_TOKEN: ${COURSE_RAG_TOKEN:?Set the course operator token}
+      COURSE_RAG_DATABASE_URL: postgresql://rag_app:${COURSE_DB_APP_PASSWORD}@course-db:5432/${COURSE_RELEASE_DB_NAME:-enterprise_rag}
+    ports: ["127.0.0.1:${COURSE_RELEASE_API_PORT:-8001}:8000"]
+    networks: [course]
+    depends_on:
+      course-db:
+        condition: service_healthy
+    healthcheck: *api-health
+
+  course-ui:
+    <<: *runtime
+    command: ["streamlit", "run", "/opt/venv/lib/python3.11/site-packages/enterprise_rag/apps/course_rag/ui.py",
+              "--server.address", "0.0.0.0", "--server.port", "8501", "--server.headless", "true"]
+    environment:
+      COURSE_RAG_API_URL: http://course-api:8000
+    ports: ["127.0.0.1:${COURSE_RELEASE_UI_PORT:-8501}:8501"]
+    networks: [course]
+    depends_on:
+      course-api:
+        condition: service_healthy
+    healthcheck: *ui-health
+
+  enterprise-api:
+    <<: *runtime
+    command: ["uvicorn", "enterprise_rag.apps.enterprise_agent.api:create_enterprise_app", "--factory", "--host", "0.0.0.0",
+              "--no-access-log", "--no-proxy-headers", "--log-config", "tools/release/uvicorn.json"]
+    environment:
+      <<: *models
+      RAG_TRUSTED_HOSTS: '["127.0.0.1","localhost","enterprise-api"]'
+      ENTERPRISE_ANALYST_TOKEN: ${ENTERPRISE_ANALYST_TOKEN:?Set enterprise analyst token}
+      ENTERPRISE_VIEWER_TOKEN: ${ENTERPRISE_VIEWER_TOKEN:?Set enterprise viewer token}
+      ENTERPRISE_RAG_DATABASE_URL: postgresql://rag_app:${ENTERPRISE_DB_APP_PASSWORD}@enterprise-db:5432/${ENTERPRISE_RELEASE_DB_NAME:-enterprise_rag}
+      ENTERPRISE_READER_URL: postgresql://enterprise_reader:${ENTERPRISE_DB_READER_PASSWORD}@enterprise-db:5432/${ENTERPRISE_RELEASE_DB_NAME:-enterprise_rag}
+    ports: ["127.0.0.1:${ENTERPRISE_RELEASE_API_PORT:-8002}:8000"]
+    networks: [enterprise]
+    depends_on:
+      enterprise-db:
+        condition: service_healthy
+    healthcheck: *api-health
+
+  inventory:
+    <<: *runtime
+    command: ["uvicorn", "enterprise_rag.apps.enterprise_agent.tools.inventory:create_inventory_app", "--factory",
+              "--host", "127.0.0.1", "--port", "8003", "--no-access-log", "--no-proxy-headers"]
+    network_mode: "service:enterprise-api"
+    depends_on:
+      enterprise-api:
+        condition: service_healthy
+        restart: true
+    healthcheck:
+      <<: *http-health
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8003/inventory/A100', timeout=2).close()"]
+
+  enterprise-ui:
+    <<: *runtime
+    command: ["streamlit", "run", "/opt/venv/lib/python3.11/site-packages/enterprise_rag/apps/enterprise_agent/ui.py",
+              "--server.address", "0.0.0.0", "--server.port", "8501", "--server.headless", "true"]
+    environment:
+      ENTERPRISE_AGENT_API_URL: http://enterprise-api:8000
+    ports: ["127.0.0.1:${ENTERPRISE_RELEASE_UI_PORT:-8502}:8501"]
+    networks: [enterprise]
+    depends_on:
+      inventory:
+        condition: service_healthy
+    healthcheck: *ui-health
+
+networks:
+  course:
+  enterprise:
+
+volumes:
+  course_data:
+  enterprise_data:

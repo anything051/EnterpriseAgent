@@ -24,7 +24,7 @@ uv run --locked --extra course uvicorn enterprise_rag.apps.course_rag.api:create
 uv run --locked --extra course streamlit run src/enterprise_rag/apps/course_rag/ui.py --server.address 127.0.0.1 --server.port 8501
 ~~~
 
-打开 [课程工作台](http://127.0.0.1:8501)。`COURSE_RAG_TOKEN` 在两个进程中均可由 `.env` 读取，Streamlit 代表本地操作者调用 API。`http://127.0.0.1:8001/docs` 提供接口调试。服务端令牌授权当前应用的所有课程，API 和界面均应绑定回环地址。
+打开 [课程工作台](http://127.0.0.1:8501)，在界面输入课程令牌。服务端从 `.env` 读取令牌，授权当前应用的所有课程。`http://127.0.0.1:8001/docs` 提供接口调试。API 和界面均应绑定回环地址。容器方式见 [统一部署指南](deployment.md)。
 
 ## 演示流程
 

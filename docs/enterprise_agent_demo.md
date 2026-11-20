@@ -2,6 +2,8 @@
 
 EnterpriseAgent 使用合成的青禾公司业务快照 `qh-2026-06-v1`。分析员可查询销售、库存、仓库制度或三源汇总。制度查阅角色只可查看制度。V0.6 工作台把报告保存在当前令牌与角色的会话中。
 
+V1.0 容器环境请按 [独立部署与恢复指南](deployment.md) 启动，再使用本页的任务和来源回查步骤。
+
 ## 配置与启动
 
 1. 按 [主项目启动说明](../README.md#本地启动) 配置 `.env`、PostgreSQL、Chat 和 Embedding。实测使用本地 Ollama 的 `qwen3.5:9b` 与 `nomic-embed-text:latest`。Chat 模型需支持原生工具调用。

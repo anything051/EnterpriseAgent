@@ -1,5 +1,6 @@
 """Streamlit entry point for the local enterprise demo."""
 
+from hashlib import sha256
 import os
 from uuid import uuid4
 
@@ -155,10 +156,11 @@ def main() -> None:
         try:
             profile = request(token, "GET", "/agent/session")
             role = profile["role"]
-            if st.session_state.get("report_token") != token:
+            identity = sha256(token.encode()).hexdigest()
+            if st.session_state.get("report_token") != identity:
                 for key in ("enterprise_report", "enterprise_thread", "pending_thread", "pending_run"):
                     st.session_state.pop(key, None)
-                st.session_state["report_token"] = token
+                st.session_state["report_token"] = identity
             threaded = profile.get("threads_enabled", False)
             thread = select_thread(token) if threaded else None
             st.caption("分析员" if role == "analyst" else "制度查阅")

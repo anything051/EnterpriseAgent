@@ -181,4 +181,7 @@ def create_enterprise_app(
 
         app.include_router(router)
 
-    return create_app(settings, service, expose_core=False, register=register, title="EnterpriseAgent")
+    state_ready = enable_sessions and include_policy and (session_store is not None or service is None)
+    relations = (("enterprise_agent", "runs"), ("enterprise_agent", "checkpoints")) if state_ready else ()
+    return create_app(settings, service, expose_core=False, register=register, title="EnterpriseAgent",
+                      ready_relations=relations)

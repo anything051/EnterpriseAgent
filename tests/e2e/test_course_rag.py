@@ -192,6 +192,8 @@ def test_streamlit_switches_courses_and_opens_numbered_citation(course_app, monk
 
         monkeypatch.setattr(httpx.Client, "request", route_workbench_requests)
         ui = AppTest.from_file(str(ROOT / "src/enterprise_rag/apps/course_rag/ui.py")).run()
+        assert not ui.text_area and ui.info
+        next(field for field in ui.text_input if field.label == "课程令牌").input(TOKEN).run()
         ui.text_area[0].input("页表记录什么？")
         next(button for button in ui.button if button.label == "查询课程").click().run()
         assert not ui.exception and not ui.error

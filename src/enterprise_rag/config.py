@@ -21,12 +21,14 @@ class Settings(BaseSettings):
     database_url: SecretStr
     app_id: str = Field(default="enterprise-rag-demo", pattern=SLUG_RE)
     collection_tokens: dict[str, SecretStr]
+    trusted_hosts: list[str] = Field(default_factory=list)
     max_upload_bytes: int = Field(default=5 * 1024 * 1024, ge=1024, le=20 * 1024 * 1024)
     chunk_chars: int = Field(default=450, ge=64, le=900)
     retrieval_mode: Literal["vector", "hybrid"] = "hybrid"
     validation_mode: Literal["off", "annotate", "gate"] = "gate"
     reranker_dir: Path | None = None
     reranker_timeout: float = Field(default=8, gt=0, le=60)
+    ollama_base_url: AnyHttpUrl = AnyHttpUrl("http://127.0.0.1:11434")
 
     chat_provider: Literal["openai", "ollama"] = "openai"
     chat_model: str = Field(min_length=1, max_length=200)
@@ -55,13 +57,25 @@ class Settings(BaseSettings):
             raise ValueError("Set one distinct URL-safe bearer token (at least 24 characters) per collection.")
         return tokens
 
-    @field_validator("chat_base_url", "embedding_base_url")
+    @field_validator("chat_base_url", "embedding_base_url", mode="before")
+    @classmethod
+    def empty_model_url(cls, url):
+        return None if url == "" else url
+
+    @field_validator("chat_base_url", "embedding_base_url", "ollama_base_url")
     @classmethod
     def check_base_url(cls, url: AnyHttpUrl | None) -> AnyHttpUrl | None:
         if url and (url.username is not None or url.password is not None or url.query is not None
                     or url.fragment is not None):
             raise ValueError("Model base URLs must not contain credentials, queries, or fragments.")
         return url
+
+    @field_validator("trusted_hosts")
+    @classmethod
+    def check_hosts(cls, hosts: list[str]) -> list[str]:
+        if any(re.fullmatch(r"[a-z0-9][a-z0-9.-]{0,252}", host) is None for host in hosts):
+            raise ValueError("Use literal DNS names or IPv4 addresses without ports in trusted hosts.")
+        return hosts
 
     @model_validator(mode="after")
     def check_provider_credentials(self):
@@ -81,7 +95,7 @@ class Settings(BaseSettings):
         provider = self.chat_provider if kind == "chat" else self.embedding_provider
         if explicit:
             return str(explicit).rstrip("/")
-        return "http://127.0.0.1:11434" if provider == "ollama" else "https://api.openai.com/v1"
+        return str(self.ollama_base_url).rstrip("/") if provider == "ollama" else "https://api.openai.com/v1"
 
     def index_profile(self) -> IndexProfile:
         return IndexProfile(
