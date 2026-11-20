@@ -18,5 +18,36 @@ services:
       interval: 2s
       timeout: 3s
       retries: 20
+  api:
+    profiles: ["api"]
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      RAG_DATABASE_URL: postgresql://rag_app:${RAG_DB_APP_PASSWORD:?Set RAG_DB_APP_PASSWORD in .env}@db:5432/enterprise_rag
+      RAG_APP_ID: ${RAG_APP_ID:-enterprise-rag-demo}
+      RAG_COLLECTION_TOKENS: ${RAG_COLLECTION_TOKENS:-}
+      RAG_CHAT_PROVIDER: ${RAG_CHAT_PROVIDER:-ollama}
+      RAG_CHAT_MODEL: ${RAG_CHAT_MODEL:-qwen3.5:9b}
+      RAG_CHAT_API_KEY: ${RAG_CHAT_API_KEY:-}
+      RAG_CHAT_TIMEOUT: ${RAG_CHAT_TIMEOUT:-90}
+      RAG_CHAT_BASE_URL: ${RAG_CONTAINER_CHAT_BASE_URL:-http://host.docker.internal:11434}
+      RAG_EMBEDDING_PROVIDER: ${RAG_EMBEDDING_PROVIDER:-ollama}
+      RAG_EMBEDDING_MODEL: ${RAG_EMBEDDING_MODEL:-nomic-embed-text:latest}
+      RAG_EMBEDDING_API_KEY: ${RAG_EMBEDDING_API_KEY:-}
+      RAG_EMBEDDING_REVISION: ${RAG_EMBEDDING_REVISION:-}
+      RAG_EMBEDDING_DIMENSION: ${RAG_EMBEDDING_DIMENSION:-768}
+      RAG_EMBEDDING_DOCUMENT_PREFIX: ${RAG_EMBEDDING_DOCUMENT_PREFIX:-}
+      RAG_EMBEDDING_QUERY_PREFIX: ${RAG_EMBEDDING_QUERY_PREFIX:-}
+      RAG_EMBEDDING_TIMEOUT: ${RAG_EMBEDDING_TIMEOUT:-30}
+      RAG_RETRIEVAL_MODE: ${RAG_RETRIEVAL_MODE:-hybrid}
+      RAG_VALIDATION_MODE: ${RAG_VALIDATION_MODE:-gate}
+      RAG_EMBEDDING_BASE_URL: ${RAG_CONTAINER_EMBEDDING_BASE_URL:-http://host.docker.internal:11434}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:${RAG_API_PORT:-8000}:8000"
+
 volumes:
   postgres_data:

@@ -56,8 +56,15 @@ class CoverageReport(BaseModel):
         return "complete" if all(part.claim_numbers for part in self.requirements) else "incomplete"
 
 
+class CallUsage(BaseModel):
+    input: int | None = None
+    output: int | None = None
+
+
 class JudgmentBatch(SemanticReview):
     coverage: Coverage
+    semantic_usage: CallUsage | None = None
+    coverage_usage: CallUsage | None = None
 
 
 class EvidenceJudge(Protocol):

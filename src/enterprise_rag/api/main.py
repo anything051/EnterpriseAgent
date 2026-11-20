@@ -85,7 +85,7 @@ def create_app(settings: Settings | None = None, service: RAGService | None = No
             if reranker is not None:
                 reranker.close()
 
-    app = FastAPI(title="EnterpriseRAG", version="0.2.0", lifespan=lifespan)
+    app = FastAPI(title="EnterpriseRAG", version="0.3.0", lifespan=lifespan)
 
     @app.middleware("http")
     async def correlate(request: Request, call_next):

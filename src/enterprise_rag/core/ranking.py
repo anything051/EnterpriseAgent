@@ -22,6 +22,7 @@ class RetrievalTrace(BaseModel):
     lexical_status: Literal["not_run", "applied", "corpus_limit"] = "not_run"
     rerank_status: RerankStatus = "not_run"
     reranker: str | None = None
+    rerank_pairs: int = 0
     vector_ids: list[UUID] = Field(default_factory=list)
     lexical_ids: list[UUID] = Field(default_factory=list)
     final_ids: list[UUID] = Field(default_factory=list)

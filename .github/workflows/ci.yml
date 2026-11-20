@@ -1,0 +1,44 @@
+name: RAG checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1e862dfacbd1d6d858c55d9b792c756523627244 # v7.1.4
+        with:
+          version: "0.11.10"
+          python-version: "3.11"
+      - name: Configure ephemeral database
+        shell: bash
+        run: |
+          owner_password="$(openssl rand -hex 24)"
+          app_password="$(openssl rand -hex 24)"
+          echo "::add-mask::$owner_password"
+          echo "::add-mask::$app_password"
+          {
+            echo "RAG_DB_OWNER_PASSWORD=$owner_password"
+            echo "RAG_DB_APP_PASSWORD=$app_password"
+            echo "RAG_DB_PORT=55432"
+            echo "RAG_TEST_DATABASE_URL=postgresql://rag_app:$app_password@127.0.0.1:55432/enterprise_rag"
+          } >> "$GITHUB_ENV"
+      - name: Test locked runtime
+        run: |
+          uv lock --check
+          uv build --wheel
+          docker compose config --quiet
+          docker compose up -d --wait
+          uv run --locked pytest -m 'not live'
+      - name: Stop database
+        if: always()
+        run: docker compose stop db

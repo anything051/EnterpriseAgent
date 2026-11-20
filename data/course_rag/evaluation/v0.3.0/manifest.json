@@ -1,0 +1,27 @@
+{
+  "version": "course-rag-v0.3.0",
+  "parser_profile": "pdf-pypdf-7.1.1__markdown-blocks-v1",
+  "label_provenance": "Codex 自编课程片段及规则标注，开发集，暂无独立人工双标。",
+  "documents": [
+    {
+      "id": "os",
+      "path": "corpus/os.md",
+      "sha256": "98c43f899fc132c1fed5698ce0f92b5884bf2e2461e3e5c10e70da9286cfc45a"
+    },
+    {
+      "id": "db",
+      "path": "corpus/db.md",
+      "sha256": "00050d0dd8a85e616b649fdc587b4d98d256559dcd04f7dd1d15688238d4bd48"
+    },
+    {
+      "id": "net",
+      "path": "corpus/net.md",
+      "sha256": "68b2b5cd8b612e15dcc2f169ff9506f5f610935bba109c20ddef440bd8901109"
+    },
+    {
+      "id": "grading",
+      "path": "corpus/grading.md",
+      "sha256": "3dea19de121300f77964e1bed2f52219929230816a03c2e5cb60668adb0d741a"
+    }
+  ]
+}

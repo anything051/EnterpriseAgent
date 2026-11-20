@@ -86,6 +86,7 @@ class Retriever:
         if not pool:
             return pool
 
+        trace.rerank_pairs = len(pool)
         try:
             scores = self.reranker.score(question, [item.content for item in pool])
             if len(scores) != len(pool) or not all(isfinite(score) for score in scores):

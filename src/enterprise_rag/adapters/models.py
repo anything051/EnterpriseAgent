@@ -15,7 +15,7 @@ from enterprise_rag.config import Settings
 from enterprise_rag.core.citations import Answer, Candidate
 from enterprise_rag.core.embeddings import EmbeddingError
 from enterprise_rag.core.generation import Draft, GeneratedDraft, GenerationError
-from enterprise_rag.core.validation import CoverageReport, JudgmentBatch, SemanticReview
+from enterprise_rag.core.validation import CallUsage, CoverageReport, JudgmentBatch, SemanticReview
 
 logger = logging.getLogger(__name__)
 Output = TypeVar("Output", bound=BaseModel)
@@ -140,6 +140,7 @@ class ModelChat:
                          for evidence_id in ordered_ids],
         }
         semantics, input_tokens, output_tokens = self._complete(SemanticReview, REVIEW_PROMPT, payload, token_limit=1800)
+        semantic_usage = CallUsage(input=input_tokens, output=output_tokens)
         logger.info("reviewed answer_id=%s validator=%s input_tokens=%s output_tokens=%s",
                     answer.answer_id, self.version, input_tokens, output_tokens)
         for claim in semantics.claims:
@@ -151,6 +152,7 @@ class ModelChat:
             report, input_tokens, output_tokens = self._complete(
                 CoverageReport, COVERAGE_PROMPT, {"question": question, "draft": draft}, token_limit=450,
             )
+            coverage_usage = CallUsage(input=input_tokens, output=output_tokens)
             coverage = report.status(len(draft))
             logger.info("reviewed_coverage answer_id=%s coverage=%s input_tokens=%s output_tokens=%s",
                         answer.answer_id, coverage, input_tokens, output_tokens)
@@ -159,7 +161,9 @@ class ModelChat:
                 raise
             logger.info("reviewed_coverage answer_id=%s coverage=uncertain error=invalid_generation", answer.answer_id)
             coverage = "uncertain"
-        return JudgmentBatch(claims=semantics.claims, coverage=coverage)
+            coverage_usage = CallUsage()
+        return JudgmentBatch(claims=semantics.claims, coverage=coverage,
+                             semantic_usage=semantic_usage, coverage_usage=coverage_usage)
 
     def _complete(self, schema: type[Output], system: str, payload: dict, *,
                   token_limit: int) -> tuple[Output, int | None, int | None]:
