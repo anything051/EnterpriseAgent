@@ -1,0 +1,125 @@
+{
+  "E1": {
+    "access_control": {
+      "passed": 1,
+      "samples": 1
+    },
+    "budget_violations": 0,
+    "explicit_retries": 0,
+    "inventory_attempts": 4,
+    "model_calls": 8,
+    "ordinary": {
+      "passed": 4,
+      "samples": 4
+    },
+    "p50_ms": 18199.58,
+    "p95_ms": 30156.67,
+    "permanent_safe_partial": {
+      "passed": 1,
+      "samples": 1
+    },
+    "task_success": {
+      "passed": 4,
+      "samples": 6
+    },
+    "tokens": {
+      "input_tokens": {
+        "observed": 6,
+        "samples": 6,
+        "total": 5189
+      },
+      "output_tokens": {
+        "observed": 6,
+        "samples": 6,
+        "total": 582
+      }
+    },
+    "transient_recovery": {
+      "assigned": 1,
+      "passed": 0,
+      "samples": 1
+    }
+  },
+  "E2": {
+    "access_control": {
+      "passed": 1,
+      "samples": 1
+    },
+    "budget_violations": 0,
+    "explicit_retries": 1,
+    "inventory_attempts": 5,
+    "model_calls": 10,
+    "ordinary": {
+      "passed": 4,
+      "samples": 4
+    },
+    "p50_ms": 17799.3,
+    "p95_ms": 27344.73,
+    "permanent_safe_partial": {
+      "passed": 1,
+      "samples": 1
+    },
+    "task_success": {
+      "passed": 5,
+      "samples": 6
+    },
+    "tokens": {
+      "input_tokens": {
+        "observed": 6,
+        "samples": 6,
+        "total": 4645
+      },
+      "output_tokens": {
+        "observed": 6,
+        "samples": 6,
+        "total": 510
+      }
+    },
+    "transient_recovery": {
+      "assigned": 1,
+      "passed": 1,
+      "samples": 1
+    }
+  },
+  "E2-no-retry": {
+    "access_control": {
+      "passed": 0,
+      "samples": 0
+    },
+    "budget_violations": 0,
+    "explicit_retries": 0,
+    "inventory_attempts": 2,
+    "model_calls": 4,
+    "ordinary": {
+      "passed": 0,
+      "samples": 0
+    },
+    "p50_ms": 27084.97,
+    "p95_ms": 29219.91,
+    "permanent_safe_partial": {
+      "passed": 1,
+      "samples": 1
+    },
+    "task_success": {
+      "passed": 0,
+      "samples": 2
+    },
+    "tokens": {
+      "input_tokens": {
+        "observed": 2,
+        "samples": 2,
+        "total": 1898
+      },
+      "output_tokens": {
+        "observed": 2,
+        "samples": 2,
+        "total": 216
+      }
+    },
+    "transient_recovery": {
+      "assigned": 1,
+      "passed": 0,
+      "samples": 1
+    }
+  }
+}

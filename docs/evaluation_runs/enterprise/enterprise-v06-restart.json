@@ -1,0 +1,57 @@
+{
+  "recorded_at": "2026-11-20T15:34:49.997044+00:00",
+  "git_sha": "b2f2452ab84e29d0cf1b6f80bd335bb2ffa33226",
+  "test": "Killed the first local API process after committing real SQL evidence and before the graph node returned.",
+  "exit_code": 81,
+  "same_thread_and_run": true,
+  "sales_journal_rows_before": 1,
+  "sales_journal_rows_after": 1,
+  "original_sales_evidence_id": "61b9a3a2a0cb48fe8b31e3591b355d10",
+  "report_status": "completed",
+  "reused_results": 1,
+  "model_calls": 2,
+  "input_tokens": 924,
+  "output_tokens": 108,
+  "sources": [
+    "sql",
+    "api",
+    "document"
+  ],
+  "audit": [
+    {
+      "call_id": "call_801bm4ha",
+      "tool": "sales_summary",
+      "status": "ok",
+      "code": "ok",
+      "elapsed_ms": 35.88,
+      "evidence_id": "61b9a3a2a0cb48fe8b31e3591b355d10",
+      "execution_key": "cb0fa12ff5b6aa01d0e55fa194327ffa7f462866a4ea4ef14007d82efc4a8ef8",
+      "attempt": 1,
+      "reused": true
+    },
+    {
+      "call_id": "call_f6oncknm",
+      "tool": "inventory_status",
+      "status": "ok",
+      "code": "ok",
+      "elapsed_ms": 10.81,
+      "evidence_id": "154553f150674b2baad479c3ecd80f65",
+      "execution_key": "e1ea0639f0d3b2c769050639242e7448c6ce82f9cb7cdaca59880a8111254d0e",
+      "attempt": 1,
+      "reused": false
+    },
+    {
+      "call_id": "call_xdkqbzjh",
+      "tool": "warehouse_policy",
+      "status": "ok",
+      "code": "ok",
+      "elapsed_ms": 2024.07,
+      "evidence_id": "b0e58f47-45e6-54c3-81c9-7cc6ef333a4f",
+      "execution_key": "16540e664884efe8acf1ea4f8d23e16352877084ba2941c852a826ba036e78ef",
+      "attempt": 1,
+      "reused": false
+    }
+  ],
+  "terminal_replay_matches": true,
+  "viewer_history_status": 404
+}

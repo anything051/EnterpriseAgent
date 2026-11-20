@@ -79,3 +79,11 @@ B/C/D 共享一次检索和生成，C/D 再共享同一次审阅。报告中的�
 E0/E1 对照固定 4 个业务任务和 1 个权限任务。任务通过需提供所有预登记来源。SQL 复核绑定参数、整数分汇总、报告展示值和内容哈希。库存复核 HTTP 路径、返回字段、可用量及哈希。制度重开授权原文，检查文档、版本、原文单元、偏移和引用文本。每项有效证据须能关联成功的审计步骤。权限任务检查模型调用数为零、证据为空且返回拒绝记录，单列统计。[任务集](../data/enterprise_agent/evaluation/v0.5.0/cases.json) · [真实 E0/E1 运行报告](evaluation_runs/enterprise/enterprise-dev-20261120/report.md)
 
 延迟统计纳入有响应的非权限任务，包含未完成样本，P95 采用最近秩。Token 仅合计供应商返回用量的样本，覆盖数保存在 `metrics.json`。离线复算使用逐例响应和保存的授权原文回查。此开发集用于闭环验收，自然语言变体和故障场景的独立统计留到后续版本。[复现命令](enterprise_agent_demo.md#复现-e0e1)
+
+## 8. V0.6 多智能体与固定故障对照
+
+E1 和 E2 复用 V0.5 的四个业务任务与一个权限任务，再加入一次库存超时和持续无效库存响应。两组使用同一模型、数据快照、工具验证及业务判分规则。E2 关闭重试组只执行两项故障任务。瞬时故障恢复分母为实际注入超时的样本，指派数另存。永久故障的安全保留分要求报告只含可复核的 SQL 与制度依据，并清楚标出缺失的库存。[故障清单](../data/enterprise_agent/evaluation/v0.6.0/faults.json)
+
+延迟从发起任务请求计到响应返回，包含模型、工具和检查点开销。报告保存实际调用次数、重试与 Token 覆盖。未完成任务纳入耗时统计。进程退出后复用证据单独验收，使用同一个会话和运行 ID 对照 PostgreSQL 工具记录。[执行和复算](enterprise_agent_demo.md#复现-e1e2-与故障对照)
+
+[真实 E1/E2 对照报告](evaluation_runs/enterprise/enterprise-reliability-20261120/report.md) · [真实进程重启记录](evaluation_runs/enterprise/enterprise-v06-restart.json)

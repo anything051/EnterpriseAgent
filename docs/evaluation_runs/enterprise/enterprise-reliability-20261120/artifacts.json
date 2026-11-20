@@ -1,0 +1,25 @@
+{
+  "run_id": "enterprise-reliability-20261120",
+  "files": {
+    "config.json": {
+      "bytes": 2742,
+      "sha256": "625fee144c99126af49cf6228abb8953d0656ba20ee255d3a9dffea9fbea753a"
+    },
+    "failures.md": {
+      "bytes": 666,
+      "sha256": "1291ca2da3363960fa30148fd9a13a2269629bdd3984615f8c420c72d9003585"
+    },
+    "metrics.json": {
+      "bytes": 2292,
+      "sha256": "94535cecc9fd2ac8b442b5f256f986e43e1946db20acefcd19fbfac3016329b4"
+    },
+    "report.md": {
+      "bytes": 991,
+      "sha256": "d3128a688a0543df7874e803ef3df6804bc67046c26c8e9c72f15505cf8905e6"
+    },
+    "samples.jsonl": {
+      "bytes": 51132,
+      "sha256": "aae38ffce22dfd7e91ae47b8d256da9fabbe54c4d93392528f428789fe68919e"
+    }
+  }
+}
