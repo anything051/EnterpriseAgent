@@ -114,7 +114,7 @@ RAG_APP_ID=enterprise-rag-container docker compose --profile api up -d --build
 
 ## 测试
 
-使用独立的本地测试数据库。设置 `RAG_TEST_DATABASE_URL` 为已初始化的应用连接串。测试数据通过随机应用 ID 隔离。默认测试不调用模型服务。启用真实模型验收前，确认 .env 的模型配置指向预期的本地或已授权端点。
+使用独立的本地测试数据库。设置 `RAG_TEST_DATABASE_URL` 为已初始化的应用连接串。运行企业数据库测试时另设 `ENTERPRISE_TEST_READER_URL`，使用测试库中的只读账号。测试数据通过随机应用 ID 隔离。默认测试不调用模型服务。启用真实模型验收前，确认 .env 的模型配置指向预期的本地或已授权端点。
 
 ~~~bash
 uv run --locked pytest tests/unit

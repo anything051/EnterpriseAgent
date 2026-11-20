@@ -1,0 +1,82 @@
+{
+  "E0": {
+    "access_control": {
+      "passed": 1,
+      "samples": 1
+    },
+    "p50_ms": 10046.74,
+    "p95_ms": 13084.31,
+    "rejected_proposals": 1,
+    "source_coverage": {
+      "api": {
+        "required": 2,
+        "supported": 2
+      },
+      "document": {
+        "required": 3,
+        "supported": 0
+      },
+      "sql": {
+        "required": 3,
+        "supported": 3
+      }
+    },
+    "task_success": {
+      "passed": 1,
+      "samples": 4
+    },
+    "tokens": {
+      "input_tokens": {
+        "observed": 3,
+        "samples": 4,
+        "total": 1685
+      },
+      "output_tokens": {
+        "observed": 3,
+        "samples": 4,
+        "total": 234
+      }
+    },
+    "tool_proposals": 6
+  },
+  "E1": {
+    "access_control": {
+      "passed": 1,
+      "samples": 1
+    },
+    "p50_ms": 8683.92,
+    "p95_ms": 12811.57,
+    "rejected_proposals": 0,
+    "source_coverage": {
+      "api": {
+        "required": 2,
+        "supported": 2
+      },
+      "document": {
+        "required": 3,
+        "supported": 3
+      },
+      "sql": {
+        "required": 3,
+        "supported": 3
+      }
+    },
+    "task_success": {
+      "passed": 4,
+      "samples": 4
+    },
+    "tokens": {
+      "input_tokens": {
+        "observed": 4,
+        "samples": 4,
+        "total": 2243
+      },
+      "output_tokens": {
+        "observed": 4,
+        "samples": 4,
+        "total": 294
+      }
+    },
+    "tool_proposals": 8
+  }
+}

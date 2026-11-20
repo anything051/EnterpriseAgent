@@ -1,0 +1,53 @@
+{
+  "app_id": "enterprise-eval-484b9597befc4797a830045192cafb4f",
+  "case_ids": [
+    "east-overview",
+    "south-overview",
+    "sales-only",
+    "policy-only",
+    "viewer-denied"
+  ],
+  "chat": {
+    "digest": "6488c96fa5faab64bb65cbd30d4289e20e6130ef535a93ef9a49f42eda893ea7",
+    "model": "qwen3.5:9b",
+    "provider": "ollama",
+    "temperature": 0
+  },
+  "created_at": "2026-11-20T15:05:10.088192+00:00",
+  "dataset_version": "enterprise-dev-v0.5.0",
+  "dirty_tracked": false,
+  "embedding": {
+    "model": "nomic-embed-text:latest",
+    "profile": "6c0dd2218694e7f12cd5908d32af6928aa927033d04657ad1dfb39abc2ea42b8",
+    "revision": "0a109f422b47e3a30ba2b10eca18548e944e8a23073ee3f3e947efcf3c45e59f"
+  },
+  "files": {
+    "data/enterprise_agent/demo/inventory.json": "e189138be40262d36b2c9730effc0af8c766333e7117fcfeb4241ef8b6f6c00a",
+    "data/enterprise_agent/evaluation/v0.5.0/cases.json": "63c3a4e2efae98ad3beaaec27e13aed5369ecdfbfec96838039aa6f9c7dbd3f7",
+    "data/samples/enterprise_inventory.md": "c3702bd18b75437bc9a3e802c63626916db04875cc290c5c92010e199353c59e",
+    "migrations/enterprise_agent/005_business_snapshot.sql": "28e72dfb7aa7833f02d4d849831549d636e8f92d5a7916355b60bf2f461c2dfc",
+    "uv.lock": "9fb9f7c9201335cc3790bbdd1835fe0511b836d9ac4aabe95381a217ca5e037f"
+  },
+  "git_sha": "314a6d941ca3aff8843ad1a6eaebc20cb1596773",
+  "langgraph": "1.2.23",
+  "max_model_calls": 3,
+  "max_output_tokens_per_call": 640,
+  "max_tool_calls": 6,
+  "order": "Alternate E0/E1 order per case in dataset order. Single sequential worker.",
+  "platform": "macOS-27.2.1-arm64-arm-64bit",
+  "postgres": "17.12 (Debian 17.12-1.pgdg12+1)",
+  "prompt_sha256": "a92b08757565c51fe9928b0c1ac758faedcac9acbb228cfe63cad23cf546e74c",
+  "python": "3.11.15",
+  "retrieval": {
+    "mode": "hybrid",
+    "policy_candidates": 10,
+    "policy_query_sha256": "4b466271f8a7012b355fd6d13046a5e6e1e663b839f410b5386a3e5b48ed5957",
+    "rerank_configured": true
+  },
+  "run_id": "enterprise-dev-20261120",
+  "schema_version": 1,
+  "snapshot": "qh-2026-06-v1",
+  "split": "development",
+  "timezone": "Asia/Shanghai",
+  "wall_budget_s": 90
+}
