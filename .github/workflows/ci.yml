@@ -24,13 +24,17 @@ jobs:
         run: |
           owner_password="$(openssl rand -hex 24)"
           app_password="$(openssl rand -hex 24)"
+          reader_password="$(openssl rand -hex 24)"
           echo "::add-mask::$owner_password"
           echo "::add-mask::$app_password"
+          echo "::add-mask::$reader_password"
           {
             echo "RAG_DB_OWNER_PASSWORD=$owner_password"
             echo "RAG_DB_APP_PASSWORD=$app_password"
             echo "RAG_DB_PORT=55432"
             echo "RAG_TEST_DATABASE_URL=postgresql://rag_app:$app_password@127.0.0.1:55432/enterprise_rag"
+            echo "ENTERPRISE_DB_READER_PASSWORD=$reader_password"
+            echo "ENTERPRISE_TEST_READER_URL=postgresql://enterprise_reader:$reader_password@127.0.0.1:55432/enterprise_rag"
           } >> "$GITHUB_ENV"
       - name: Test locked runtime
         run: |
@@ -38,7 +42,7 @@ jobs:
           uv build --wheel
           docker compose config --quiet
           docker compose up -d --wait
-          uv run --locked --extra course pytest -m 'not live'
+          uv run --locked --extra course --extra agent pytest -m 'not live'
       - name: Stop database
         if: always()
         run: docker compose stop db

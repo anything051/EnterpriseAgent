@@ -1,0 +1,47 @@
+{
+  "version": "enterprise-dev-v0.5.0",
+  "split": "development",
+  "snapshot": "qh-2026-06-v1",
+  "timezone": "Asia/Shanghai",
+  "cases": [
+    {
+      "id": "east-overview",
+      "role": "analyst",
+      "task": {"kind": "overview", "question": "汇总 2026-06-01 华东销售、查询 A100 库存，并引用盘点差异登记时限。", "day": "2026-06-01", "region": "华东", "sku": "A100"},
+      "expected": {
+        "sql": {"order_count": 2, "units": 12, "revenue_cents": 145000},
+        "api": {"sku": "A100", "snapshot": "qh-2026-06-v1", "on_hand": 18, "reserved": 5, "safety_stock": 10},
+        "document": "24 小时内登记差异"
+      }
+    },
+    {
+      "id": "south-overview",
+      "role": "analyst",
+      "task": {"kind": "overview", "question": "核对 2026-06-02 华南的日销售、C300 库存和仓库差异登记要求。", "day": "2026-06-02", "region": "华南", "sku": "C300"},
+      "expected": {
+        "sql": {"order_count": 1, "units": 6, "revenue_cents": 48000},
+        "api": {"sku": "C300", "snapshot": "qh-2026-06-v1", "on_hand": 11, "reserved": 1, "safety_stock": 9},
+        "document": "24 小时内登记差异"
+      }
+    },
+    {
+      "id": "sales-only",
+      "role": "analyst",
+      "task": {"kind": "sales", "question": "2026-06-02 华东区域卖出了多少件，销售额多少？", "day": "2026-06-02", "region": "华东"},
+      "expected": {"sql": {"order_count": 1, "units": 4, "revenue_cents": 60000}}
+    },
+    {
+      "id": "policy-only",
+      "role": "viewer",
+      "task": {"kind": "policy", "question": "发现账面库存与实物不符后，应在多久内登记差异？"},
+      "expected": {"document": "24 小时内登记差异"}
+    },
+    {
+      "id": "viewer-denied",
+      "role": "viewer",
+      "task": {"kind": "overview", "question": "汇总 2026-06-01 华东的销售和 A100 库存，再提供盘点登记要求。", "day": "2026-06-01", "region": "华东", "sku": "A100"},
+      "expected": {},
+      "denied": true
+    }
+  ]
+}

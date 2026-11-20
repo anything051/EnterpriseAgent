@@ -6,6 +6,7 @@ services:
       POSTGRES_PASSWORD: ${RAG_DB_OWNER_PASSWORD:?Set RAG_DB_OWNER_PASSWORD in .env}
       POSTGRES_DB: enterprise_rag
       RAG_DB_APP_PASSWORD: ${RAG_DB_APP_PASSWORD:?Set RAG_DB_APP_PASSWORD in .env}
+      ENTERPRISE_DB_READER_PASSWORD: ${ENTERPRISE_DB_READER_PASSWORD:-}
     ports:
       - "127.0.0.1:${RAG_DB_PORT:-5432}:5432"
     volumes:
@@ -14,6 +15,7 @@ services:
       - ./migrations/core/002_runtime_role.sql:/docker-entrypoint-initdb.d/02_runtime_role.sql:ro
       - ./migrations/core/003_highlight_source.sql:/docker-entrypoint-initdb.d/03_highlight_source.sql:ro
       - ./migrations/course_rag/004_catalog.sql:/docker-entrypoint-initdb.d/04_course_catalog.sql:ro
+      - ./migrations/enterprise_agent/005_business_snapshot.sql:/docker-entrypoint-initdb.d/05_enterprise_snapshot.sql:ro
     healthcheck:
       test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "rag_owner", "-d", "enterprise_rag"]
       interval: 2s

@@ -1,8 +1,11 @@
 # EnterpriseRAG
 
-可信 RAG 核心为本科毕设 **CourseRAG** 和 2027 届春招项目 **EnterpriseAgent** 共用。V0.4 提供独立的 CourseRAG 课程工作台，支持课程、章节、知识点、材料版本、可信问答、PDF 原文高亮及开发评测归档导出。[CourseRAG 启动与演示](docs/course_rag_demo.md)
+可信 RAG 核心为本科毕设 **CourseRAG** 和 2027 届春招项目 **EnterpriseAgent** 共用。两个应用有各自的入口、作用域、演示数据和评测。
 
-共享 API 继续支持中文文本 PDF、UTF-8 Markdown、混合检索、可选本地重排、结构化引用和证据校验。EnterpriseAgent 业务应用计划于 V0.5 开发。
+- **CourseRAG V0.4** 提供课程目录、材料版本、可信问答、PDF 原文高亮及开发评测归档导出。[CourseRAG 启动与演示](docs/course_rag_demo.md)
+- **EnterpriseAgent V0.5** 使用 LangGraph、真实工具调用、只读销售查询、库存 HTTP API 和仓库制度检索，生成可回查的业务报告。[EnterpriseAgent 启动与演示](docs/enterprise_agent_demo.md)
+
+共享 API 支持中文文本 PDF、UTF-8 Markdown、混合检索、可选本地重排、结构化引用和证据校验。
 
 ## 本地启动
 
@@ -115,7 +118,7 @@ RAG_APP_ID=enterprise-rag-container docker compose --profile api up -d --build
 
 ~~~bash
 uv run --locked pytest tests/unit
-uv run --locked --extra course pytest -m 'not live'
+uv run --locked --extra course --extra agent pytest -m 'not live'
 RAG_RUN_LIVE=1 RAG_RERANKER_DIR=.rag-models/bge uv run --locked --extra rerank pytest -m live -o log_cli=true -o log_cli_level=INFO
 ~~~
 

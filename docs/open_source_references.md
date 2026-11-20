@@ -67,3 +67,7 @@ PDF 坐标由 pdfplumber 0.11.10 提取，仅在其字形序列与 pypdf 保存�
 Streamlit 1.67.0 通过可选 `course` 依赖安装，许可为 Apache-2.0。界面使用其原生表单和控件，回归测试通过 AppTest 驱动。python-dotenv 1.2.4 使用 BSD-3-Clause，用于读取本地 UI 配置。[Streamlit](https://github.com/streamlit/streamlit) · [AppTest](https://docs.streamlit.io/develop/api-reference/app-testing/st.testing.v1.apptest) · [python-dotenv](https://github.com/theskumar/python-dotenv)
 
 PDF 预览复用 pypdfium2 5.15.2 的渲染接口与 Pillow 13.0.0 的图像合成，项目代码负责对应页码、坐标校验和高亮叠加。pypdfium2 wheel 记录 BSD-3-Clause、Apache-2.0 以及所捆绑库的许可，Pillow 包元数据标注 MIT-CMU。分发二进制时按实际 wheel 平台保留附带许可证及声明。[pypdfium2 许可说明](https://pypdfium2.readthedocs.io/en/stable/readme.html#licensing) · [Pillow 许可](https://github.com/python-pillow/Pillow/blob/main/LICENSE)
+
+## V0.5 智能体依赖
+
+LangGraph 1.2.23 使用 MIT，复用 `StateGraph` 配合条件路由和内部状态。本轮选择手写授权执行节点，逐个校验工具、预算、作用域、调用 ID 和证据。OpenAI 适配器复用 LangChain `bind_tools`，Ollama 适配器调用原生 `/api/chat` 工具协议。各依赖版本由 `uv.lock` 固定。[LangGraph 包](https://pypi.org/project/langgraph/1.2.23/) · [Graph API](https://docs.langchain.com/oss/python/langgraph/graph-api) · [Ollama 工具调用](https://docs.ollama.com/capabilities/tool-calling)

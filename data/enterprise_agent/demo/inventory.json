@@ -1,0 +1,8 @@
+{
+  "snapshot": "qh-2026-06-v1",
+  "items": [
+    {"sku": "A100", "on_hand": 18, "reserved": 5, "safety_stock": 10},
+    {"sku": "B200", "on_hand": 7, "reserved": 2, "safety_stock": 8},
+    {"sku": "C300", "on_hand": 11, "reserved": 1, "safety_stock": 9}
+  ]
+}
