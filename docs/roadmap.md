@@ -60,7 +60,7 @@ V0.1 保持精确向量检索与基础引用，BM25、Rerank、语义校验、La
 | 目标与边界 | 中文 BM25 + 向量融合、重排、细粒度原文定位、声明支持校验和证据不足处理 |
 | 前置 | V0.1 稳定快照、来源偏移、基础检索与答案 |
 | 模块 | 词法索引、RRF、CrossEncoder、原文跨度解析、声明级验证器、拒答策略 |
-| 复用与自研 | 复用 BM25S、中文分词器与 Sentence Transformers。自研同 scope 候选合并、支持校验输入/输出、引用组合与拒答策略 |
+| 复用与自研 | 复用 BM25S、jieba、BGE CrossEncoder ONNX、pdfplumber。自研同 scope 候选合并、支持校验输入/输出、引用组合与拒答策略 |
 | 交付文件 | `src/enterprise_rag/core/{retrieval,reranking,citations,validation}.py`、分词与排序配置、定位/冲突样例、对应 `tests/` |
 | 自动化测试 | 分词和 RRF 确定性、重排超时降级、坐标与页码回退、单证据及组合支持、语义冲突、引用缺失 |
 | 验收 | 用固定样例运行 `uv run --locked pytest tests/unit tests/integration`。检查包含精确术语、跨段、无证据和冲突四类结果。重排失败时可见实际分支。可获得可靠坐标的样例可复核高亮，其他样例可按页定位 |

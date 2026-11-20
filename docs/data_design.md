@@ -60,7 +60,7 @@ Evidence 通用信封包含 `evidence_id`、`scope_id`、`source_type`、`source
 | SQL | 执行 ID、模板 ID 和版本、允许保留的参数或哈希、业务快照、结果行键/列、时间、结果摘要哈希 | 验证该执行真实成功且授权，按结果列、单位、过滤条件和快照核对数字及可复算聚合 |
 | API | 执行 ID、端点 ID、响应字段路径、时间、上游版本/快照、响应摘要哈希 | 核对授权、响应状态、结构、时间和保留的字段投影。字段缺失、快照过期或无法复核时标记不确定 |
 
-模型可提出候选证据 ID。后端只为本请求已授权的 Evidence 生成 Citation。Citation 记录 `binding_status`（已绑定）、`support_status`（`unchecked`、`supported`、`unsupported`、`contradicted`、`uncertain`）、验证器版本、依据和时间。V0.1 的有效引用处于 `unchecked`。V0.2 校验单条证据和同一陈述的证据组合，缺引用、组合支持和冲突均留痕。业务推断应标明假设，数值和事实可分别回核。
+模型可提出候选证据 ID。后端只为本请求已授权的 Evidence 生成 Citation。Citation 记录 `binding_status`（已绑定）、`support_status`（`unchecked`、`supported`、`unsupported`、`contradicted`、`uncertain`）、验证器版本、依据和时间。V0.1 的有效引用处于 `unchecked`。V0.2 校验单条证据和同一陈述的证据组合，缺引用、组合支持和冲突均留痕。可唯一匹配的模型引文另保存为 `quote_span`，以同一不可变原文的字符区间表示。PDF 字符框按需从授权版本重新计算，避免改变既有解析与索引配置。业务推断应标明假设，数值和事实可分别回核。
 
 ## 4. 课程、企业和评测数据
 

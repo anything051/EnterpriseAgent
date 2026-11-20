@@ -1,6 +1,6 @@
 # EnterpriseRAG
 
-可信 RAG 核心为本科毕设 **CourseRAG** 和 2027 届春招项目 **EnterpriseAgent** 共用。当前 V0.1 提供本地基础 RAG API，支持中文文本 PDF、UTF-8 Markdown、向量问答、结构化引用和版本化原文读取。两个应用的界面和业务流程在后续版本交付。
+可信 RAG 核心为本科毕设 **CourseRAG** 和 2027 届春招项目 **EnterpriseAgent** 共用。当前 V0.2 提供本地可信 RAG API，支持中文文本 PDF、UTF-8 Markdown、混合检索、可选本地重排、结构化引用及证据校验。两个应用的界面和业务流程在后续版本交付。
 
 ## 本地启动
 
@@ -26,10 +26,34 @@ curl -fsS http://127.0.0.1:11434/api/tags
 
 ~~~bash
 docker compose up -d --wait
+~~~
+
+已有 V0.1 数据卷时，数据库启动后执行一次兼容迁移。此 SQL 可重复执行，已有文档、索引 ID 与向量继续可用。新数据卷会自动执行。
+
+~~~bash
+docker compose exec -T db psql -v ON_ERROR_STOP=1 -U rag_owner -d enterprise_rag < migrations/core/003_highlight_source.sql
+~~~
+
+~~~bash
 uv run --locked uvicorn enterprise_rag.api.main:create_app --factory --host 127.0.0.1
 ~~~
 
 访问本地接口文档 `http://127.0.0.1:8000/docs`。 `/healthz` 只检查 API 进程存活。再次启动 Compose 会保留既有数据。Docker 初始化 SQL 只对空数据卷自动执行。
+
+## 检索、重排与证据策略
+
+默认 `RAG_RETRIEVAL_MODE=hybrid` 和 `RAG_VALIDATION_MODE=gate`。中文 BM25S 与 pgvector 在同一发布快照内各取最多 20 条，使用 RRF 融合。语义审阅检查每条引用、组合支撑、其他候选中的冲突，并单独判断问题是否回答完整。没有可绑定引用的陈述会触发统一拒答。研究用的 `annotate` 保留有引用的草稿和判定，`off` 仅做基础引用绑定。设为 `vector` 和 `off` 可复现 V0.1 基线。
+
+可选重排为固定版本的 BGE CrossEncoder INT8，在 CPU 上运行。若本地目录还没有模型文件，可按以下命令下载。可跳过下载直接使用混合检索与 RRF。运行时会校验两个文件的 SHA-256，重排超时或不可用时响应会标记实际使用的策略。
+
+~~~bash
+base=https://huggingface.co/Xenova/bge-reranker-base/resolve/280bcc27a84e0b898c251e06fddb25171bd9b101
+mkdir -p .rag-models/bge
+curl -fL "$base/tokenizer.json" -o .rag-models/bge/tokenizer.json
+curl -fL "$base/onnx/model_int8.onnx" -o .rag-models/bge/model_int8.onnx
+uv sync --locked --extra rerank
+RAG_RERANKER_DIR=.rag-models/bge uv run --locked --extra rerank uvicorn enterprise_rag.api.main:create_app --factory --host 127.0.0.1
+~~~
 
 ## API 演示
 
@@ -49,11 +73,11 @@ curl -fsS http://127.0.0.1:8000/questions \
   -d '{"collection_id":"course-demo","question":"根据课程笔记，LRU 选择哪个页面？","k":5}'
 ~~~
 
-答案的 `evidence[]` 包含 `source_id` 和 `locator`。用 `GET /documents/{source_id}/versions/{version_id}/units/{unit_id}` 加同一令牌读取原文。按 `[start, end)` 切片可复核引用。PDF 示例的 LRU 证据位于物理第 2 页。可用同一上传方式导入 `data/samples/enterprise_inventory.md`，用 `enterprise-demo` 集合与对应令牌询问盘点差异何时登记。两份材料均为本项目编写的公开演示样例，企业信息为合成数据。
+答案的 `retrieval` 记录实际检索策略、候选 ID 和重排状态。开启证据审阅时，`verification` 记录每条陈述的判定、问题覆盖状态和可回读的冲突证据。答案的 `evidence[]` 包含 `source_id` 和 `locator`。用 `GET /documents/{source_id}/versions/{version_id}/units/{unit_id}` 加同一令牌读取原文。按 `[start, end)` 切片可复核引用。可在该路径后追加 `/highlight?start=…&end=…` 获取 PDF 字符框。优先使用引用的 `quote_span`，否则使用证据的 Chunk 范围。PDF 示例的 LRU 证据位于物理第 2 页。可用同一上传方式导入 `data/samples/enterprise_inventory.md`，用 `enterprise-demo` 集合与对应令牌询问盘点差异何时登记。两份材料均为本项目编写的公开演示样例，企业信息为合成数据。
 
 - 首次发布索引返回 201。相同文档、原始字节和索引配置重复提交时返回相同的版本和索引 ID，状态码 200。上传时可传已有 `document_id` 为该文档增加修订。旧版本的引用仍能按授权读回。
-- 引用由服务端绑定到本次候选证据，`support_status=unchecked` 表示尚未做语义支持性验证。模型无依据或任何陈述缺少可绑定引用时返回 `insufficient_evidence`。依赖故障返回明确的 HTTP 错误和请求 ID。
-- 默认每个文件最多 5 MiB，PDF 最多 100 页。保留 pypdf 的文本层，跳过空白或无文字页并报告页码。扫描件、加密 PDF、复杂版式和不可信上传场景超出本地演示范围。
+- 引用由服务端绑定到本次候选证据。`support_status` 表示单条引用的支持性，组合结论在 `verification.claims` 中。`gate` 模式对证据不足、冲突或回答不完整返回 `insufficient_evidence`，并提供 `refusal_reason`。依赖故障返回 HTTP 错误和请求 ID。
+- 默认每个文件最多 5 MiB，PDF 最多 100 页。保留 pypdf 的文本层，跳过空白或无文字页并报告页码。扫描件、加密 PDF 和不可信上传场景超出本地演示范围。页面旋转、几何异常或原文对齐不一致时返回 `page_only`，Markdown 返回 `text_only`。
 
 ## 测试
 
@@ -62,10 +86,10 @@ curl -fsS http://127.0.0.1:8000/questions \
 ~~~bash
 uv run --locked pytest tests/unit
 uv run --locked pytest -m 'not live'
-RAG_RUN_LIVE=1 uv run --locked pytest -m live -o log_cli=true -o log_cli_level=INFO
+RAG_RUN_LIVE=1 RAG_RERANKER_DIR=.rag-models/bge uv run --locked --extra rerank pytest -m live -o log_cli=true -o log_cli_level=INFO
 ~~~
 
-真实模型验收覆盖 PDF、Markdown、重复导入、原文定位和证据不足。应用日志可通过 Python 日志配置启用 `enterprise_rag` 的 INFO 级别，记录请求 ID、耗时、状态和可得 Token 数。测试记录与限制见 [V0.1 交接](docs/handoff/V0.1.md)。
+真实模型验收覆盖 V0.1 回归、混合重排、PDF 坐标、组合证据、冲突和问题覆盖。应用日志可通过 Python 日志配置启用 `enterprise_rag` 的 INFO 级别，记录请求 ID、耗时、状态和可得 Token 数。测试记录与限制见 [V0.2 交接](docs/handoff/V0.2.md)。
 
 ## 项目文档
 

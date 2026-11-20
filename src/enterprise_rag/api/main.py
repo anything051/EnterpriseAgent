@@ -1,5 +1,6 @@
 """Local REST API for authorized document intake, questions, and source lookup."""
 
+from contextlib import asynccontextmanager
 from hmac import compare_digest
 import logging
 from time import perf_counter
@@ -7,7 +8,7 @@ from typing import Annotated, Literal
 from uuid import UUID, uuid4
 
 import psycopg
-from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, Response, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, Request, Response, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -15,7 +16,9 @@ from pydantic import BaseModel, ConfigDict, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from enterprise_rag.adapters.models import create_models
+from enterprise_rag.adapters.pdf_highlight import Highlight, locate_span
 from enterprise_rag.adapters.postgres import PostgresStore
+from enterprise_rag.adapters.reranker import OnnxReranker
 from enterprise_rag.config import SLUG_RE, Settings
 from enterprise_rag.core.citations import Answer
 from enterprise_rag.core.documents import DocumentInputError, DocumentNotFound, Scope, SourceView
@@ -65,12 +68,24 @@ def _error(request: Request, status: int, code: str, message: str, headers: dict
 
 def create_app(settings: Settings | None = None, service: RAGService | None = None) -> FastAPI:
     settings = settings if settings is not None else Settings()
+    reranker = None
     if service is None:
         embedding, chat = create_models(settings)
-        service = RAGService(PostgresStore(settings.database_url.get_secret_value()),
-                             embedding, chat, settings.index_profile())
+        if settings.retrieval_mode == "hybrid" and settings.reranker_dir is not None:
+            reranker = OnnxReranker(settings.reranker_dir, settings.reranker_timeout)
+        service = RAGService(PostgresStore(settings.database_url.get_secret_value()), embedding, chat,
+                             settings.index_profile(), retrieval_mode=settings.retrieval_mode, reranker=reranker,
+                             validation_mode=settings.validation_mode, judge=chat)
 
-    app = FastAPI(title="EnterpriseRAG", version="0.1.0")
+    @asynccontextmanager
+    async def lifespan(_app):
+        try:
+            yield
+        finally:
+            if reranker is not None:
+                reranker.close()
+
+    app = FastAPI(title="EnterpriseRAG", version="0.2.0", lifespan=lifespan)
 
     @app.middleware("http")
     async def correlate(request: Request, call_next):
@@ -168,5 +183,12 @@ def create_app(settings: Settings | None = None, service: RAGService | None = No
     def original(document_id: UUID, version_id: UUID, unit_id: UUID,
                  scope: Annotated[Scope, Depends(authorized_scope)]) -> SourceView:
         return service.store.source(scope, document_id, version_id, unit_id)
+
+    @app.get("/documents/{document_id}/versions/{version_id}/units/{unit_id}/highlight")
+    def highlight(document_id: UUID, version_id: UUID, unit_id: UUID,
+                  scope: Annotated[Scope, Depends(authorized_scope)],
+                  start: Annotated[int, Query(ge=0)], end: Annotated[int, Query(gt=0)]) -> Highlight:
+        page, source_text, raw_pdf = service.store.highlight_source(scope, document_id, version_id, unit_id)
+        return locate_span(raw_pdf, page, source_text, start, end)
 
     return app

@@ -1,5 +1,6 @@
 """Environment-only configuration for the service and its model providers."""
 
+from pathlib import Path
 import re
 from typing import Literal
 
@@ -22,6 +23,10 @@ class Settings(BaseSettings):
     collection_tokens: dict[str, SecretStr]
     max_upload_bytes: int = Field(default=5 * 1024 * 1024, ge=1024, le=20 * 1024 * 1024)
     chunk_chars: int = Field(default=450, ge=64, le=900)
+    retrieval_mode: Literal["vector", "hybrid"] = "hybrid"
+    validation_mode: Literal["off", "annotate", "gate"] = "gate"
+    reranker_dir: Path | None = None
+    reranker_timeout: float = Field(default=8, gt=0, le=60)
 
     chat_provider: Literal["openai", "ollama"] = "openai"
     chat_model: str = Field(min_length=1, max_length=200)

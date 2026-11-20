@@ -58,6 +58,7 @@ def test_openai_adapter_with_provider_protocol_and_no_network():
                 "model": "test-embed", "usage": {"prompt_tokens": 2, "total_tokens": 2}})
         assert request.url.path == "/v1/chat/completions"
         assert body["response_format"]["type"] == "json_schema"
+        assert body["max_completion_tokens"] == 768
         draft_json = json.dumps({"claims": [{"text": "value", "evidence_ids": ["E1", "invented"]}]})
         return httpx.Response(200, json={
             "id": "chatcmpl-fixture", "object": "chat.completion", "created": 1, "model": "test-chat",

@@ -55,3 +55,9 @@
 - RAG attribution 研究讨论引用正确性与模型忠实性的差别。论文报告可沿用这一概念边界，并对评审口径给出解释。[TU Delft 论文记录](https://research.tudelft.nl/en/publications/correctness-is-not-faithfulness-in-retrieval-augmented-generation/)
 - RRF 用于融合各检索分支排名。开发集固定融合常数、候选大小和重排配置，保留可重复的单分支对照。[Cormack 等，SIGIR 2009](https://plg.uwaterloo.ca/~gvcormac/cormacksigir09-rrf.pdf)
 - Ragas 论文提供检索上下文、回答与评审的自动化评测背景。[Es 等，EACL 2024](https://aclanthology.org/2024.eacl-demo.16/)
+
+## V0.2 实际采用的组件
+
+BM25S 0.3.16 与 jieba 0.42.1 用于按授权语料计算词法排序。BGE CrossEncoder 使用 ONNX Runtime 和 Tokenizers 执行固定的 Xenova INT8 导出，以减少本地安装体积。原始 BAAI 模型卡标注 MIT。导出仓库的模型卡未单列许可，代码仅记录上游来源、固定修订和权重哈希，使用者按需下载，仓库里没有权重文件。[BAAI 原模型](https://huggingface.co/BAAI/bge-reranker-base) · [固定的 ONNX 导出](https://huggingface.co/Xenova/bge-reranker-base/tree/280bcc27a84e0b898c251e06fddb25171bd9b101) · [ONNX Runtime 许可](https://github.com/microsoft/onnxruntime/blob/main/LICENSE)
+
+PDF 坐标由 pdfplumber 0.11.10 提取，仅在其字形序列与 pypdf 保存的原文一致时使用。库采用 MIT，锁文件保留其间接依赖版本。[pdfplumber 文档](https://github.com/jsvine/pdfplumber) · [许可](https://github.com/jsvine/pdfplumber/blob/stable/LICENSE.txt)

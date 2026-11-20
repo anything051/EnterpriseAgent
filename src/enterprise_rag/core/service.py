@@ -4,16 +4,19 @@ import logging
 from typing import Protocol
 from uuid import UUID, uuid4
 
-from .citations import Answer, answer_from_draft, insufficient
+from .citations import Answer, ValidationMode, answer_from_draft, insufficient, verified_candidates
 from .documents import (
     Build, Chunk, IngestResult, ParsedDocument, Scope, SourceView, chunk_units, parse_document,
 )
 from .embeddings import Embedding, EmbeddingError, IndexProfile, validate_vectors
 from .generation import Chat
+from .ranking import Reranker, RetrievalMode
 from .retrieval import Retriever, SearchStore
+from .validation import EvidenceJudge, JudgmentBatch, validate_answer
 
 logger = logging.getLogger(__name__)
 EMBEDDING_BATCH_SIZE = 32
+REVIEW_LIMIT = 10
 
 
 class Store(SearchStore, Protocol):
@@ -23,15 +26,23 @@ class Store(SearchStore, Protocol):
     def publish(self, build: Build, parsed: ParsedDocument, profile: IndexProfile,
                 chunks: list[Chunk], vectors: list[list[float]]) -> bool: ...
     def source(self, scope: Scope, document_id: UUID, version_id: UUID, unit_id: UUID) -> SourceView: ...
+    def highlight_source(self, scope: Scope, document_id: UUID, version_id: UUID,
+                         unit_id: UUID) -> tuple[int | None, str, bytes | None]: ...
 
 
 class RAGService:
-    def __init__(self, store: Store, embedding: Embedding, chat: Chat, profile: IndexProfile):
+    def __init__(self, store: Store, embedding: Embedding, chat: Chat, profile: IndexProfile, *,
+                 retrieval_mode: RetrievalMode = "vector", reranker: Reranker | None = None,
+                 validation_mode: ValidationMode = "off", judge: EvidenceJudge | None = None):
+        if validation_mode != "off" and judge is None:
+            raise ValueError("Evidence validation requires a judge.")
         self.store = store
         self.embedding = embedding
         self.chat = chat
         self.profile = profile
-        self.retriever = Retriever(store, embedding, profile)
+        self.retriever = Retriever(store, embedding, profile, mode=retrieval_mode, reranker=reranker)
+        self.validation_mode = validation_mode
+        self.judge = judge
 
     def ingest(self, scope: Scope, filename: str, data: bytes, document_id: UUID | None = None) -> IngestResult:
         parsed = parse_document(filename, data)
@@ -57,12 +68,22 @@ class RAGService:
 
     def ask(self, scope: Scope, question: str, k: int, request_id: str | None = None) -> Answer:
         answer_id = uuid4()
-        candidates = self.retriever.search(scope, question, k)
+        review_enabled = self.validation_mode != "off"
+        retrieved = self.retriever.retrieve(scope, question, k, review_k=REVIEW_LIMIT if review_enabled else 0)
+        candidates = list(verified_candidates(retrieved.candidates, scope.id).values())
         if not candidates:
-            return insufficient(answer_id)
-
-        generated = self.chat.generate(question, candidates)
-        result = answer_from_draft(generated.draft, candidates, scope.id, answer_id)
-        logger.info("generated request_id=%s answer_id=%s status=%s input_tokens=%s output_tokens=%s",
-                    request_id, answer_id, result.answer_status, generated.input_tokens, generated.output_tokens)
+            result = insufficient(answer_id, "no_candidates")
+        else:
+            generated = self.chat.generate(question, candidates)
+            result = answer_from_draft(generated.draft, candidates, scope.id, answer_id,
+                                       keep_unbound=review_enabled)
+            if self.validation_mode != "off" and self.judge is not None and result.claims:
+                review_candidates = list(verified_candidates(retrieved.review_candidates, scope.id).values())
+                review = (self.judge.review(question, result, review_candidates) if result.citations
+                          else JudgmentBatch(coverage="uncertain", claims=[]))
+                result = validate_answer(result, review_candidates, review.claims, self.validation_mode,
+                                         self.judge.version, coverage=review.coverage)
+            logger.info("generated request_id=%s answer_id=%s status=%s input_tokens=%s output_tokens=%s",
+                        request_id, answer_id, result.answer_status, generated.input_tokens, generated.output_tokens)
+        result.retrieval = retrieved.trace
         return result

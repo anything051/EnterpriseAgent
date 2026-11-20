@@ -166,41 +166,24 @@ class PostgresStore:
             self._check_profile(row, profile_id)
             return row["ready"]
 
+    @contextmanager
+    def search_snapshot(self, scope: Scope, profile_id: str):
+        with self._connect() as conn:
+            conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+            register_vector(conn)
+            yield PostgresSearchSnapshot(conn, scope, profile_id)
+
     def top_chunks(self, scope: Scope, profile_id: str, vector: list[float], k: int) -> list[Candidate]:
-        with self._connect(vectors=True) as conn:
-            rows = conn.execute(
-                """WITH scoped AS MATERIALIZED (
-                       SELECT c.*, d.document_id
-                       FROM rag.documents d
-                       JOIN rag.document_versions v ON v.document_id = d.document_id AND v.revision = d.active_revision
-                       JOIN rag.index_builds b ON b.version_id = v.version_id
-                       JOIN rag.chunks c ON c.index_id = b.index_id
-                       WHERE d.app_id = %s AND d.collection_id = %s
-                         AND b.index_profile_id = %s AND b.status = 'ready'
-                   ), ranked AS (
-                       SELECT scoped.*, embedding <=> %s AS distance
-                       FROM scoped ORDER BY distance, chunk_id LIMIT %s
-                   )
-                   SELECT r.document_id, r.version_id, r.unit_id, r.chunk_id, r.content, r.paragraph_id,
-                          r.start_offset, r.end_offset, u.parser_profile_id, u.page, u.page_label,
-                          u.heading_path, u.start_line, u.end_line, u.source_text
-                   FROM ranked r JOIN rag.source_units u ON u.unit_id = r.unit_id
-                   ORDER BY r.distance, r.chunk_id""",
-                (scope.app_id, scope.collection_id, profile_id, Vector(vector), k),
-            ).fetchall()
-        return [
-            Candidate(
-                evidence_id=str(row["chunk_id"]), scope_id=scope.id, source_id=row["document_id"],
-                content=row["content"], source_text=row["source_text"],
-                locator=DocumentLocator(
-                    version_id=row["version_id"], unit_id=row["unit_id"], chunk_id=row["chunk_id"],
-                    parser_profile_id=row["parser_profile_id"], page=row["page"], page_label=row["page_label"],
-                    heading_path=row["heading_path"], start_line=row["start_line"], end_line=row["end_line"],
-                    paragraph_id=row["paragraph_id"], start=row["start_offset"], end=row["end_offset"],
-                ),
-            )
-            for row in rows
-        ]
+        with self.search_snapshot(scope, profile_id) as snapshot:
+            return snapshot.candidates(snapshot.vector_ids(vector, k))
+
+    def highlight_source(self, scope: Scope, document_id: UUID, version_id: UUID, unit_id: UUID):
+        with self._connect() as conn:
+            row = conn.execute("SELECT * FROM rag.highlight_source(%s, %s, %s, %s, %s)",
+                               (scope.app_id, scope.collection_id, document_id, version_id, unit_id)).fetchone()
+        if row is None:
+            raise DocumentNotFound()
+        return row["page"], row["source_text"], row["original"]
 
     def source(self, scope: Scope, document_id: UUID, version_id: UUID, unit_id: UUID) -> SourceView:
         with self._connect() as conn:
@@ -217,3 +200,59 @@ class PostgresStore:
         if row is None:
             raise DocumentNotFound()
         return SourceView.model_validate(row)
+
+
+ACTIVE_CHUNKS = """FROM rag.documents d
+    JOIN rag.document_versions v ON v.document_id = d.document_id AND v.revision = d.active_revision
+    JOIN rag.index_builds b ON b.version_id = v.version_id
+    JOIN rag.chunks c ON c.index_id = b.index_id
+    WHERE d.app_id = %s AND d.collection_id = %s
+      AND b.index_profile_id = %s AND b.status = 'ready'"""
+
+
+class PostgresSearchSnapshot:
+    def __init__(self, conn, scope: Scope, profile_id: str):
+        self.conn = conn
+        self.scope = scope
+        self.params = (scope.app_id, scope.collection_id, profile_id)
+
+    def vector_ids(self, vector: list[float], k: int) -> list[UUID]:
+        rows = self.conn.execute(
+            f"""WITH scoped AS MATERIALIZED (SELECT c.chunk_id, c.embedding {ACTIVE_CHUNKS})
+                SELECT chunk_id FROM scoped ORDER BY embedding <=> %s, chunk_id LIMIT %s""",
+            (*self.params, Vector(vector), k),
+        ).fetchall()
+        return [row["chunk_id"] for row in rows]
+
+    def lexical_corpus(self, limit: int) -> list[tuple[UUID, str]]:
+        rows = self.conn.execute(f"""SELECT c.chunk_id, c.content {ACTIVE_CHUNKS}
+                                     ORDER BY c.chunk_id LIMIT %s""", (*self.params, limit)).fetchall()
+        return [(row["chunk_id"], row["content"]) for row in rows]
+
+    def candidates(self, ids: list[UUID]) -> list[Candidate]:
+        if not ids:
+            return []
+        rows = self.conn.execute(
+            f"""WITH selected AS (
+                   SELECT c.*, d.document_id {ACTIVE_CHUNKS} AND c.chunk_id = ANY(%s)
+               )
+               SELECT r.document_id, r.version_id, r.unit_id, r.chunk_id, r.content, r.paragraph_id,
+                      r.start_offset, r.end_offset, u.parser_profile_id, u.page, u.page_label,
+                      u.heading_path, u.start_line, u.end_line, u.source_text
+               FROM selected r JOIN rag.source_units u ON u.unit_id = r.unit_id""",
+            (*self.params, ids),
+        ).fetchall()
+        candidates = {
+            row["chunk_id"]: Candidate(
+                evidence_id=str(row["chunk_id"]), scope_id=self.scope.id, source_id=row["document_id"],
+                content=row["content"], source_text=row["source_text"],
+                locator=DocumentLocator(
+                    version_id=row["version_id"], unit_id=row["unit_id"], chunk_id=row["chunk_id"],
+                    parser_profile_id=row["parser_profile_id"], page=row["page"], page_label=row["page_label"],
+                    heading_path=row["heading_path"], start_line=row["start_line"], end_line=row["end_line"],
+                    paragraph_id=row["paragraph_id"], start=row["start_offset"], end=row["end_offset"],
+                ),
+            )
+            for row in rows
+        }
+        return [candidates[chunk_id] for chunk_id in ids]

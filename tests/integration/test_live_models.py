@@ -17,7 +17,8 @@ HEADERS = {"Authorization": f"Bearer {TOKEN}"}
 def test_configured_models_answer_with_both_source_types():
     if os.environ.get("RAG_RUN_LIVE") != "1":
         pytest.skip("Set RAG_RUN_LIVE=1 to exercise the configured models")
-    settings = Settings(app_id=f"live-{uuid4().hex}", collection_tokens={"demo": TOKEN})
+    settings = Settings(app_id=f"live-{uuid4().hex}", collection_tokens={"demo": TOKEN},
+                        retrieval_mode="vector", validation_mode="off")
     with TestClient(create_app(settings)) as client:
         cases = [
             ("course_memory.pdf", "根据课程笔记，LRU 选择哪个页面？", 2, "最长时间"),
