@@ -1,6 +1,8 @@
 # EnterpriseRAG
 
-可信 RAG 核心为本科毕设 **CourseRAG** 和 2027 届春招项目 **EnterpriseAgent** 共用。当前 V0.3 提供可评测的本地可信 RAG API，支持中文文本 PDF、UTF-8 Markdown、混合检索、可选本地重排、结构化引用及证据校验。两个应用的界面和业务流程在后续版本交付。
+可信 RAG 核心为本科毕设 **CourseRAG** 和 2027 届春招项目 **EnterpriseAgent** 共用。V0.4 提供独立的 CourseRAG 课程工作台，支持课程、章节、知识点、材料版本、可信问答、PDF 原文高亮及开发评测归档导出。[CourseRAG 启动与演示](docs/course_rag_demo.md)
+
+共享 API 继续支持中文文本 PDF、UTF-8 Markdown、混合检索、可选本地重排、结构化引用和证据校验。EnterpriseAgent 业务应用计划于 V0.5 开发。
 
 ## 本地启动
 
@@ -113,11 +115,11 @@ RAG_APP_ID=enterprise-rag-container docker compose --profile api up -d --build
 
 ~~~bash
 uv run --locked pytest tests/unit
-uv run --locked pytest -m 'not live'
+uv run --locked --extra course pytest -m 'not live'
 RAG_RUN_LIVE=1 RAG_RERANKER_DIR=.rag-models/bge uv run --locked --extra rerank pytest -m live -o log_cli=true -o log_cli_level=INFO
 ~~~
 
-真实模型验收覆盖 V0.1 回归、混合重排、PDF 坐标、组合证据、冲突和问题覆盖。应用日志可通过 Python 日志配置启用 `enterprise_rag` 的 INFO 级别，记录请求 ID、耗时、状态和可得 Token 数。测试记录与限制见 [V0.3 交接](docs/handoff/V0.3.md)。
+真实模型回归覆盖基础问答、混合重排、PDF 坐标、组合证据、冲突和问题覆盖。CourseRAG 另有数据库及界面回归。应用日志可通过 Python 日志配置启用 `enterprise_rag` 的 INFO 级别，记录请求 ID、耗时、状态和可得 Token 数。[V0.4 交接与实测](docs/handoff/V0.4.md)
 
 ## 项目文档
 

@@ -13,6 +13,7 @@ services:
       - ./migrations/core/001_initial.sql:/docker-entrypoint-initdb.d/01_initial.sql:ro
       - ./migrations/core/002_runtime_role.sql:/docker-entrypoint-initdb.d/02_runtime_role.sql:ro
       - ./migrations/core/003_highlight_source.sql:/docker-entrypoint-initdb.d/03_highlight_source.sql:ro
+      - ./migrations/course_rag/004_catalog.sql:/docker-entrypoint-initdb.d/04_course_catalog.sql:ro
     healthcheck:
       test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "rag_owner", "-d", "enterprise_rag"]
       interval: 2s

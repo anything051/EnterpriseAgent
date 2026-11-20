@@ -4,11 +4,11 @@ from contextlib import asynccontextmanager
 from hmac import compare_digest
 import logging
 from time import perf_counter
-from typing import Annotated, Literal
+from typing import Annotated, Callable, Literal
 from uuid import UUID, uuid4
 
 import psycopg
-from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, Request, Response, UploadFile
+from fastapi import APIRouter, Depends, FastAPI, File, Form, HTTPException, Query, Request, Response, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -66,7 +66,9 @@ def _error(request: Request, status: int, code: str, message: str, headers: dict
                                  "request_id": request.state.request_id})
 
 
-def create_app(settings: Settings | None = None, service: RAGService | None = None) -> FastAPI:
+def create_app(settings: Settings | None = None, service: RAGService | None = None, *,
+               register: Callable[[FastAPI, RAGService], None] | None = None,
+               expose_core: bool = True, title: str = "EnterpriseRAG") -> FastAPI:
     settings = settings if settings is not None else Settings()
     reranker = None
     if service is None:
@@ -85,7 +87,8 @@ def create_app(settings: Settings | None = None, service: RAGService | None = No
             if reranker is not None:
                 reranker.close()
 
-    app = FastAPI(title="EnterpriseRAG", version="0.3.0", lifespan=lifespan)
+    app = FastAPI(title=title, version="0.4.0", lifespan=lifespan)
+    core = APIRouter()
 
     @app.middleware("http")
     async def correlate(request: Request, call_next):
@@ -154,7 +157,7 @@ def create_app(settings: Settings | None = None, service: RAGService | None = No
     def healthz() -> dict[str, str]:
         return {"status": "ok"}
 
-    @app.post("/documents", status_code=201, response_model=IngestResponse,
+    @core.post("/documents", status_code=201, response_model=IngestResponse,
               responses={200: {"model": IngestResponse, "description": "Already indexed"}},
               max_body_size=settings.max_upload_bytes + 64 * 1024,
               form_limits={"max_files": 1, "max_fields": 2, "max_part_size": 4096})
@@ -172,23 +175,27 @@ def create_app(settings: Settings | None = None, service: RAGService | None = No
                               index_id=result.index_id, chunk_count=result.chunk_count,
                               skipped_pages=list(result.skipped_pages))
 
-    @app.post("/questions", max_body_size=16 * 1024)
+    @core.post("/questions", max_body_size=16 * 1024)
     def question(request: Request, query: QuestionRequest,
                  scope: Annotated[Scope, Depends(authorized_scope)]) -> QuestionResponse:
         require_collection(scope, query.collection_id)
         result = service.ask(scope, query.question, query.k, request.state.request_id)
         return QuestionResponse(**result.model_dump(), request_id=request.state.request_id)
 
-    @app.get("/documents/{document_id}/versions/{version_id}/units/{unit_id}")
+    @core.get("/documents/{document_id}/versions/{version_id}/units/{unit_id}")
     def original(document_id: UUID, version_id: UUID, unit_id: UUID,
                  scope: Annotated[Scope, Depends(authorized_scope)]) -> SourceView:
         return service.store.source(scope, document_id, version_id, unit_id)
 
-    @app.get("/documents/{document_id}/versions/{version_id}/units/{unit_id}/highlight")
+    @core.get("/documents/{document_id}/versions/{version_id}/units/{unit_id}/highlight")
     def highlight(document_id: UUID, version_id: UUID, unit_id: UUID,
                   scope: Annotated[Scope, Depends(authorized_scope)],
                   start: Annotated[int, Query(ge=0)], end: Annotated[int, Query(gt=0)]) -> Highlight:
         page, source_text, raw_pdf = service.store.highlight_source(scope, document_id, version_id, unit_id)
         return locate_span(raw_pdf, page, source_text, start, end)
 
+    if expose_core:
+        app.include_router(core)
+    if register is not None:
+        register(app, service)
     return app

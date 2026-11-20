@@ -38,7 +38,7 @@ jobs:
           uv build --wheel
           docker compose config --quiet
           docker compose up -d --wait
-          uv run --locked pytest -m 'not live'
+          uv run --locked --extra course pytest -m 'not live'
       - name: Stop database
         if: always()
         run: docker compose stop db

@@ -8,7 +8,6 @@ from importlib.metadata import version
 import json
 from pathlib import Path
 import platform
-import re
 import subprocess
 from uuid import uuid4
 
@@ -22,6 +21,7 @@ from enterprise_rag.config import Settings
 from enterprise_rag.core.documents import Scope
 from enterprise_rag.core.retrieval import BRANCH_LIMIT, LEXICAL_CHUNK_LIMIT
 
+from .artifacts import RUN_ID, write_manifest
 from .runner import FINAL_K, RANK_K, run_cases
 from .schema import Record, load_dataset
 from .scoring import GROUPS, aggregate, score
@@ -144,7 +144,7 @@ def run(args) -> int:
     if not questions:
         raise ValueError(f"No questions in {args.split} split")
     run_id = args.run_id or f"course-{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}-{uuid4().hex[:8]}"
-    if re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9-]{0,70}", run_id) is None:
+    if RUN_ID.fullmatch(run_id) is None:
         raise ValueError("Invalid run ID")
     scope = Scope(f"eval-{uuid4().hex}", "course-v03")
     settings = Settings(app_id=scope.app_id, collection_tokens={scope.collection_id: "offline-evaluation-fixture-token"})
@@ -182,10 +182,15 @@ def main() -> int:
     experiment.add_argument("--seed", type=int, default=42)
     replay = commands.add_parser("summarize")
     replay.add_argument("directory", type=Path)
+    archive = commands.add_parser("archive", help="Create the manifest required for CourseRAG export")
+    archive.add_argument("directory", type=Path)
     args = parser.parse_args()
     try:
         if args.command == "run":
             return run(args)
+        if args.command == "archive":
+            print(write_manifest(args.directory))
+            return 0
         summarize(args.directory)
         return 0
     except (ValueError, OSError) as error:
